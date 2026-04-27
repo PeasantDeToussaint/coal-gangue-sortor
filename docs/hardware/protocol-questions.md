@@ -19,21 +19,26 @@
   3. 拆解固件（最后选项，需 JTAG）
 - **里程碑**：拿到协议后 → Phase 3 实现 `ValveDriverSerial`
 
-### Q2. ✅ 已解决！X 射线源型号已确认
+### Q2. ✅ 已完全解决！X 射线源协议已破解 + 实现
 
 **VJ Technologies IXS200BP500P479**（美国，规格文件 SPC-P479 REV3）
 
 - 控制接口：**RS232（J3，9针母口，Pin2=TX-，Pin3=RX+，Pin5=GND）**
-- 协议文档：**P032-IXS-FIRMWARE-P032 R5**（VJ Technologies 内部文件，需索取）
+- 串口参数：**9600 8N1 无流控**
+- 帧格式：`<STX><命令文本><CR>`
+- 完整协议笔记：**[`docs/hardware/protocols/vj-xray-rs232.md`](protocols/vj-xray-rs232.md)** ✅
+- 命令集（10 条）：WDOG / PTM / ENBL / VP / CP / CLR / FLT / MON / STAT / PSTAT
+- 故障字 9 位：调节/联锁/KOV/AOV/过温/弧/过流/功率/过压
 - 联锁：J2 Pin1&Pin2 必须短接才能出射线（安全门开关串联）
 - 最大参数：100–200 kV，0.2–2.5 mA，500 W
 
-**下一步**：
-1. 联系 VJ Technologies（www.vjtechnologies.com / +1-631-981-7100）索取 P032-IXS-FIRMWARE-P032 R5
-2. 或在旧项目代码中找 XLibDll 的 RS232 帧格式（可能是泓博自己封装的）
-3. 放入 `docs/hardware/protocols/vj-ixs-firmware-p032-r5.md`
+**已完成**：
+- ✅ 旧项目 `XRayLib.cpp` 已破解全部 10 条 ASCII 命令
+- ✅ 新仓库 `hardware/XRayInterface/XRaySerial.cpp` 已实现 `IXRaySource` 接口
+- ✅ 跨平台 `core/Serial/SerialPort.cpp`（POSIX termios + Win32 CreateFile）
+- ✅ 单元测试 `tests/test_xray_serial_format.cpp` 守住协议编码
 
-**里程碑**：Phase 4
+**仍可索取**（更高准确度，非阻塞）：联系 VJ Technologies（+1-631-981-7100）拿 `P032-IXS-FIRMWARE-P032 R5` 比对漏掉的命令
 
 ### Q3. ⏸ 暂缓！工业相机（当前系统未安装）
 
@@ -77,21 +82,26 @@
 - **获取途径**：拍铭牌 + 查厂家手册；看 TwinCAT 项目源码（如果能拿到的话）
 - **里程碑**：Phase 5
 
-### Q7. ✅ 已解决！探测器型号确认
+### Q7. ✅ 已完全解决！探测器 SDK 已提取 + 适配器已写
 
 **Detection Technology Inc. Aurora 系统**（合同 00001861-15，2026-01-04）
 
-- **X-Card DA21506414C × 17**：探测器像素阵列模块，17 块拼成完整宽度
-- **X-GCU GT × 1**：全局控制单元，PC 通信接口
+- **X-Card DA21506414C × 17**：像素阵列模块（17 × 128 = 2180 像素总宽）
+- **X-GCU GT × 1**：全局控制单元（GigE 千兆以太网，UDP 广播发现）
 - **触发线 15m**：光电触发信号接入 GCU
-- **旧项目 `XLibDll.lib`**：正是封装 Aurora GCU SDK 的 DLL，来源确认！
+- **像素深度**：16 bit（uint16_t）
+- 完整接入文档：**[`docs/hardware/protocols/detection-tech-aurora.md`](protocols/detection-tech-aurora.md)** ✅
 
-**仍需确认**：
-- X-Card 每块的像素数 / 行频（→ Aurora SDK 文档）
-- GCU 与 PC 的物理接口（USB3 / GigE / 光纤，看 X-GCU GT 数据手册）
-- SDK 版本（联系地太科特北京：+86 10 6783 2601）
+**已完成**：
+- ✅ 旧项目 `include/DetInclude/` 47 个头文件 = 完整 Aurora X-LIB SDK
+- ✅ 旧项目 `DetectorLib.cpp` = 完整使用范例
+- ✅ 75 个 `XPARA_*` 参数枚举已提取
+- ✅ 新仓库 `hardware/DetectorInterface/DetectorAurora.cpp` 已实现 `IDetector` 接口（条件编译 `CGS_HAS_AURORA_SDK`）
 
-**里程碑**：Phase 4 — 从 `XLibDll.lib` 提取接口，或直接向 Detection Technology 要 Aurora SDK
+**最后一步**（部署时执行）：
+- 把 `include/DetInclude/*.h` 拷贝到 `third_party/aurora-sdk/include/`
+- 拿到 `xlib.dll` / `xlib.lib`（向地太科特北京 +86 10 6783 2601 索取）放到 `third_party/aurora-sdk/lib/`
+- 编译开关：`cmake -DCGS_HAS_AURORA_SDK=ON -DCGS_AURORA_SDK_DIR=third_party/aurora-sdk`
 
 ## 中 P2（影响标定精度）
 

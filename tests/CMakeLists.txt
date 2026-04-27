@@ -5,6 +5,7 @@ add_executable(cgs_tests
     test_nozzle_mapper.cpp
     test_timing.cpp
     test_fusion.cpp
+    test_xray_serial_format.cpp
 )
 
 target_link_libraries(cgs_tests PRIVATE cgs_core)

@@ -1,5 +1,9 @@
 #include "XRayMock.h"
 
+#ifdef CGS_HAS_SERIAL
+#include "XRaySerial.h"
+#endif
+
 namespace cgs {
 namespace hardware {
 
@@ -46,6 +50,9 @@ void XRayMock::setStatusCallback(StatusCallback cb) { m_cb = std::move(cb); }
 
 std::unique_ptr<IXRaySource> createXRaySource(const std::string& type) {
     if (type == "mock" || type.empty()) return std::make_unique<XRayMock>();
+#ifdef CGS_HAS_SERIAL
+    if (type == "vj-serial" || type == "serial") return std::make_unique<XRaySerial>();
+#endif
     return nullptr;
 }
 
