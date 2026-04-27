@@ -7,6 +7,8 @@ set(CGS_CORE_SOURCES
     NozzleMapping/NozzleMapper.h
     Timing/TimingCalculator.cpp
     Timing/TimingCalculator.h
+    Pipeline/PipelineEngine.cpp
+    Pipeline/PipelineEngine.h
 )
 
 if(CGS_HAS_SERIAL)

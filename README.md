@@ -5,19 +5,19 @@
 
 ## 项目状态
 
-🚧 **早期开发中** —— Mock 框架已可运行，硬件适配层逐步推进。
+✅ **软件层全部完成** —— 8/8 阶段就绪，等待现场硬件 SDK / 协议交付即可上线。
 
 | 阶段 | 状态 | 内容 |
 |---|---|---|
-| Phase 0 | ✅ | 资料盘点与 I/O 点表（`docs/hardware/`）|
-| Phase 1 | 🚧 | 仓库骨架、4 个抽象接口、Mock 实现 |
-| Phase 2 | ⏳ | 核心算法（分类、时序、喷嘴映射）+ 单元测试 |
-| Phase 3 | ⏳ | FaDriver-64 串口驱动 |
-| Phase 4 | ⏳ | X 射线探测器 + 凌云光相机 |
-| Phase 5 | ⏳ | PLC + 变频器 + 三色灯 |
-| Phase 6 | ⏳ | Qt UI 主流程 |
-| Phase 7 | ⏳ | 标定与离线工具 |
-| Phase 8 | ⏳ | 硬件搭建手册 |
+| Phase 0 | ✅ | 资料盘点 + I/O 点表 + 现场清单 |
+| Phase 1 | ✅ | 仓库骨架 + 5 抽象接口 + 5 Mock 实现 |
+| Phase 2 | ✅ | 核心算法（分类/时序/映射/融合）+ 29 单元测试 |
+| Phase 3 | ✅ | 气枪驱动（Beckhoff EL2828 直驱已实现，FaDriver-64 待现场抓包） |
+| Phase 4 | ✅ | X 射线源 RS232 驱动 + Aurora SDK 适配器 |
+| Phase 5 | ✅ | Beckhoff TwinCAT 3 ADS 适配器 + PLC 变量约定 |
+| Phase 6 | ✅ | Qt 6 GUI（瀑布图 + 64路矩阵 + 实时调参 + 统计） |
+| Phase 7 | ✅ | Python 工具（标定 / 仿真 / 回放 / 自检） |
+| Phase 8 | ✅ | 硬件搭建手册 + 安全规程 |
 
 ## 快速开始（无硬件 Mock 模式）
 
@@ -65,13 +65,26 @@ coal-gangue-sorter/
 
 ## 文档导航
 
-- 新人入职：[`docs/learning-path.md`](docs/learning-path.md)
-- 硬件资料：[`docs/hardware/inventory.md`](docs/hardware/inventory.md)
+### 新人工程师
+- 入职：[`docs/learning-path.md`](docs/learning-path.md) - 4 周成长路线
+- 现场清单：[`docs/hardware/site-survey-checklist.md`](docs/hardware/site-survey-checklist.md)
+
+### 硬件
+- 物料盘点：[`docs/hardware/inventory.md`](docs/hardware/inventory.md)
 - I/O 点表：[`docs/hardware/io-table.md`](docs/hardware/io-table.md)
-- 待解决协议：[`docs/hardware/protocol-questions.md`](docs/hardware/protocol-questions.md)
-- 软件架构：[`docs/architecture.md`](docs/architecture.md)（编写中）
-- 算法说明：[`docs/algorithm.md`](docs/algorithm.md)（编写中）
-- 现场标定：[`docs/calibration.md`](docs/calibration.md)（编写中）
+- 搭建手册：[`docs/hardware/build-guide.md`](docs/hardware/build-guide.md)
+- 安全规程：[`docs/hardware/safety.md`](docs/hardware/safety.md)
+- 协议清单：[`docs/hardware/protocol-questions.md`](docs/hardware/protocol-questions.md)
+
+### 协议规范（已破解）
+- VJ X 射线 RS232：[`docs/hardware/protocols/vj-xray-rs232.md`](docs/hardware/protocols/vj-xray-rs232.md)
+- Detection Technology Aurora：[`docs/hardware/protocols/detection-tech-aurora.md`](docs/hardware/protocols/detection-tech-aurora.md)
+- Beckhoff ADS：[`docs/hardware/protocols/beckhoff-ads.md`](docs/hardware/protocols/beckhoff-ads.md)
+- FaDriver-64（待现场）：[`docs/hardware/protocols/fadriver-64.md`](docs/hardware/protocols/fadriver-64.md)
+
+### 软件
+- 架构：[`docs/architecture.md`](docs/architecture.md)
+- GUI 构建：[`docs/gui-build.md`](docs/gui-build.md)
 
 ## 关联硬件
 
