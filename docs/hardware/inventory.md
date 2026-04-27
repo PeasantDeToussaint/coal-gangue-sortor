@@ -108,11 +108,9 @@
 - **EL2828 × 20 = 160 路 DO**：推测 8 模块（64 路）用于气枪阀，其余 96 路用于皮带、信号灯等
 - 上位机软件（Qt 应用）通过 **ADS（Automation Device Specification）协议（TCP/IP）** 与 TwinCAT 通信
 
-**AnySystem FaDriver-64 Ver1.8**（64 通道高速电磁阀驱动板）：
-- 串口接口：2 × DB9（COM1/COM2）
-- 供电：24 V DC
-- 可能角色：负责亚毫秒级精确时序触发（EtherCAT 1ms 周期不够时用此板补偿）
-- **协议未知 — Phase 3 待破解**
+~~**AnySystem FaDriver-64 Ver1.8**~~（已废弃，不再使用）：
+- 气枪电磁阀改由 **Beckhoff EL2828 直驱**，FaDriver-64 退出方案
+- 历史调研笔记保留于 `docs/hardware/protocols/fadriver-64.md`
 
 ### 2.4 保护与开关元件（采购成本明细）
 | 元件 | 型号 | 数量 |
@@ -256,7 +254,7 @@
 
 ## 7. 已知未知点（→ 见 `protocol-questions.md`）
 
-1. **FaDriver-64 串口协议** — 决定整个气枪链路能否打通
+1. ~~**FaDriver-64 串口协议**~~ — 已废弃，改用 Beckhoff EL2828 直驱，此项关闭
 2. **凌云光相机型号 / SDK** — 决定相机集成路线
 3. **PLC 品牌型号** — 决定 PLC 通信协议（西门子 S7 / 三菱 MC / 汇川 Modbus / 信捷 …）
 4. **X 射线源型号** — 决定 SDK 与功率/能量参数

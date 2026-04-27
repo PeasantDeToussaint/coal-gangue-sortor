@@ -47,11 +47,13 @@ cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 
-# Vendor SDKs (proprietary; never commit)
-third_party/sdk/
-third_party/*/sdk/
-*.lib
-*.dll
+# Vendor SDK binaries (proprietary; headers tracked, binaries excluded)
+# Aurora SDK: headers are tracked, DLL/LIB excluded (too large, OS-specific)
+third_party/aurora-sdk/lib/*.dll
+third_party/aurora-sdk/lib/*.lib
+third_party/aurora-sdk/lib/debug/
+# Beckhoff ADS: cloned externally at build time
+third_party/ads/
 
 # Sensitive runtime data
 config/config.local.xml

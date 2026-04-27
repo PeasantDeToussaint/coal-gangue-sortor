@@ -11,7 +11,8 @@ option(CGS_BUILD_CONSOLE  "Build console pipeline runner" ON)
 option(CGS_HAS_SERIAL       "Enable POSIX/Win32 serial port support (XRaySerial)" ON)
 option(CGS_HAS_AURORA_SDK   "Enable Detection Technology Aurora SDK adapter (needs SDK)" OFF)
 option(CGS_HAS_BECKHOFF_ADS "Enable Beckhoff TwinCAT ADS adapter (needs Beckhoff/ADS lib)" OFF)
-set(CGS_AURORA_SDK_DIR "" CACHE PATH "Path to Aurora SDK root (contains include/ + lib/)")
+set(CGS_AURORA_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/aurora-sdk"
+    CACHE PATH "Path to Aurora SDK root (contains include/ + lib/)")
 set(CGS_BECKHOFF_ADS_DIR "" CACHE PATH "Path to Beckhoff/ADS source tree (clone of github.com/Beckhoff/ADS)")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")

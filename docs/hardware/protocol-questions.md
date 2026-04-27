@@ -4,22 +4,20 @@
 
 ## 紧急 P0（不解决软件无法上线）
 
-### Q1. ⚠️ 部分解决！气枪驱动有备选方案
+### Q1. ✅ 已关闭！气枪驱动方案确认：Beckhoff EL2828 直驱
 
-**FaDriver-64 协议仍未确认**（详见 [`protocols/fadriver-64.md`](protocols/fadriver-64.md)），但**软件已不阻塞**：
+**FaDriver-64 已废弃**，不再使用。气枪由 Beckhoff EL2828 直驱：
 
-**已实现的备选方案：通过 Beckhoff EL2828 直驱**
-- 配电柜里有 EL2828 × 20 = 160 路 24V/2A DO，足以直驱 64 路 DF8 电磁阀
-- ✅ `hardware/ValveDriverInterface/ValveDriverEL2828.cpp` 实现 `IValveDriver`
-- ✅ 1ms 调度循环，在 EtherCAT 周期内拉高/拉低对应通道
-- ✅ 时序精度 ~ 1 ms，满足 DF8 阀 5–15 ms 响应需求
+- EL2828 × 20 = 160 路 24V/2A DO，其中 64 路对应 DF8 电磁阀
+- ✅ `hardware/ValveDriverInterface/ValveDriverEL2828.cpp` 已实现 `IValveDriver`
+- ✅ 1ms EtherCAT 周期精度，满足 DF8 阀 5–15 ms 响应需求
+- ✅ `ValveDriverEL2828` 通过 Beckhoff ADS 写 PLC GVL 变量触发通道
 
-**FaDriver-64 仍需做的事（非阻塞，待现场调试日完成）**：
-- 现场拍 FaDriver-64 板上铭牌/二维码
-- 看电磁阀线缆走向：接 EL2828 还是 FaDriver-64？
-- 若接 FaDriver-64：用串口分线器 + 抓包工具捕获原版上位机的命令
-- 把抓获的字节流贴到 [`protocols/fadriver-64.md`](protocols/fadriver-64.md)
-- 1 天内可补完 `ValveDriverFaDriver64.cpp`（参照 `XRaySerial` 实现风格）
+**软件链路（最终方案）**：
+
+```
+PipelineEngine → ValveDriverEL2828 → ADS → TwinCAT → EL2828 → DF8 阀 → 气枪喷嘴
+```
 
 ### Q2. ✅ 已完全解决！X 射线源协议已破解 + 实现
 
@@ -154,21 +152,14 @@
 
 ---
 
-## 优先级排序（执行顺序建议）
+## 当前未解决事项（按优先级）
 
 | 优先级 | 任务 | 预估工时 | 阻塞 |
 |---|---|---|---|
-| P0 | Q1 拿到 FaDriver-64 协议 | 1–7 天 | Phase 3 |
-| P0 | Q3 拍凌云光相机铭牌 | 0.5 天 | Phase 4 |
-| P0 | Q2 拍 X 射线源铭牌 | 0.5 天 | Phase 4 |
-| P0 | Q4 扫光源 QR 码 | 0.5 天 | Phase 4 |
-| P1 | Q5 拍 PLC 铭牌 | 0.5 天 | Phase 5 |
-| P1 | Q6 拍变频器铭牌 | 0.5 天 | Phase 5 |
-| P1 | Q7 确认探测器型号 | 0.5 天 | Phase 4 |
-| P2 | Q8 几何参数实测 | 1 天 | 标定 |
-| P2 | Q9 阀响应实测 | 1 天 | 标定 |
+| P1 | Q6 变频器铭牌 → 确认是否走 EtherCAT | 0.5 天 | 现场调试 |
+| P2 | Q8 几何参数实测（探测中心到喷嘴距离） | 1 天 | 时序标定 |
+| P2 | Q9 DF8 阀响应时间实测 | 1 天 | 时序标定 |
+| P2 | Q10 探测器视窗吹扫周期 | 现场观察 | 维护策略 |
+| P3 | Q3 工业相机（设备未到货） | 设备到货时 | — |
 
----
-
-> 软件这边**等不起 P0**，但可以**先做 Mock 与算法**，等协议到位直接接入。  
-> 这正是 Phase 0–2 的设计原因。
+所有软件 P0 项已完成，当前无阻塞项。
