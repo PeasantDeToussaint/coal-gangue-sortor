@@ -1,5 +1,9 @@
 #include "PLCMock.h"
 
+#ifdef CGS_HAS_BECKHOFF_ADS
+#include "PLCBeckhoff.h"
+#endif
+
 #include <chrono>
 
 namespace cgs {
@@ -86,6 +90,9 @@ void PLCMock::run() {
 
 std::unique_ptr<IPLC> createPLC(const std::string& type) {
     if (type == "mock" || type.empty()) return std::make_unique<PLCMock>();
+#ifdef CGS_HAS_BECKHOFF_ADS
+    if (type == "beckhoff" || type == "ads") return std::make_unique<PLCBeckhoff>();
+#endif
     return nullptr;
 }
 

@@ -54,7 +54,7 @@
 
 ## 高 P1（影响系统集成）
 
-### Q5. ✅ 已解决！控制系统是 Beckhoff TwinCAT 3 + EtherCAT（不是传统 PLC！）
+### Q5. ✅ 已完全解决！Beckhoff TwinCAT 3 + EtherCAT 适配器已实现
 
 **确认来源**：货物签收单（山西永创自动化工程有限公司，2026-01-09）
 
@@ -69,12 +69,20 @@
 | 末端盖帽 | EL9011 × 2 | 端子排末端 |
 
 **上位机通信协议**：**Beckhoff ADS（Automation Device Specification）over TCP/IP**
-- 默认端口：48898（ADS）
-- 开源库：[ADS C++ 库](https://github.com/Beckhoff/ADS) / [TwinCAT.Ads NuGet]
-- 文档：[infosys.beckhoff.com](https://infosys.beckhoff.com/content/1033/tc3_ads_intro/index.html)
-- 关键概念：AMS Net ID / Port / Variable handle / Read-Write
+- 默认端口：48898（路由），851（PLC Runtime）
+- 开源库：[Beckhoff/ADS C++ 库](https://github.com/Beckhoff/ADS)（MIT 开源）
+- 完整接入文档：**[`docs/hardware/protocols/beckhoff-ads.md`](protocols/beckhoff-ads.md)** ✅
 
-**里程碑**：Phase 5 → 用 Beckhoff ADS 库替换 Modbus，连接 TwinCAT 读写 EL2828 DO
+**已完成**：
+- ✅ 协议文档 + PLC 变量映射约定（GVL）
+- ✅ `hardware/PLCInterface/PLCBeckhoff.cpp` 实现 `IPLC` 接口（条件编译 `CGS_HAS_BECKHOFF_ADS`）
+- ✅ `BeckhoffPlcVariableMap` 配置驱动，PLC 工程师改名不影响代码
+- ✅ 50Hz 后台变化检测线程（光电触发 + 急停事件）
+
+**最后一步**（部署时执行）：
+- `git clone https://github.com/Beckhoff/ADS third_party/ads`
+- 编译开关：`cmake -DCGS_HAS_BECKHOFF_ADS=ON -DCGS_BECKHOFF_ADS_DIR=third_party/ads`
+- 与 PLC 工程师对齐 GVL 变量名（约 15 个，详见协议文档）
 
 ### Q6. 变频器品牌与寄存器
 - **现场**：检测带 4 kW 变频器（可能也挂在 EtherCAT 总线上，或 Modbus 独立）

@@ -75,3 +75,4 @@ venv/
 *.swp
 *~
 build-manual/
+*.o
