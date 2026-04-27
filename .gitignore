@@ -1,0 +1,77 @@
+# Build
+build/
+build-*/
+cmake-build-*/
+out/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.exp
+*.pdb
+*.ilk
+
+# IDE
+.vscode/
+.idea/
+*.user
+*.user.*
+*.suo
+*.vcxproj.user
+.DS_Store
+Thumbs.db
+
+# Qt qmake artifacts
+Makefile
+Makefile.*
+debug/
+release/
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qm
+.qmake.cache
+.qmake.stash
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Vendor SDKs (proprietary; never commit)
+third_party/sdk/
+third_party/*/sdk/
+*.lib
+*.dll
+
+# Sensitive runtime data
+config/config.local.xml
+data/
+logs/
+recordings/
+*.bin
+*.raw
+*.pcap
+
+# Python (tools/)
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Temp
+*.tmp
+*.bak
+*.swp
+*~
+build-manual/

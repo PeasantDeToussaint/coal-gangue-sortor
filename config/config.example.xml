@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Coal-Gangue Sorter configuration template.
+  Copy to `config.xml` (untracked) and edit per machine.
+  All distances mm, time ms, speed m/s. Units are explicit in attribute names
+  to make 现场 calibration unambiguous.
+-->
+<config version="1">
+
+    <!-- ============ Hardware identity ============ -->
+    <hardware>
+        <xray type="mock"   port=""           kv="80"  ma="5"/>
+        <detector type="mock" lineRateHz="1000" width="1024"/>
+        <camera type="mock"  ip="192.168.1.50" width="2048" height="1024"
+                 exposureUs="800" gainDb="6" frameRateHz="30" hardwareTrigger="false"/>
+        <valveDriver type="mock"
+                      port="/dev/cu.usbserial-AB0K1234"
+                      baud="115200"
+                      channels="64"/>
+        <plc type="mock" endpoint="modbus-tcp://192.168.1.10:502"/>
+    </hardware>
+
+    <!-- ============ Geometry (must be field-calibrated) ============ -->
+    <geometry>
+        <beltWidthMm>1000</beltWidthMm>
+        <sensorToNozzleMm>860</sensorToNozzleMm>
+        <nozzleSpacingMm>30</nozzleSpacingMm>
+        <nozzleCount>64</nozzleCount>
+        <firstNozzleId>1</firstNozzleId>
+        <pixelsPerNozzle>16</pixelsPerNozzle>
+        <beltLeftPaddingPx>0</beltLeftPaddingPx>
+        <beltRightPaddingPx>0</beltRightPaddingPx>
+    </geometry>
+
+    <!-- ============ Belt drive (variable frequency) ============ -->
+    <belt>
+        <nominalSpeedMps>2.0</nominalSpeedMps>
+        <minSpeedMps>0.5</minSpeedMps>
+        <maxSpeedMps>3.5</maxSpeedMps>
+        <vfdHzAtNominal>50</vfdHzAtNominal>
+    </belt>
+
+    <!-- ============ Timing (DF8 valve characterised on the bench) ============ -->
+    <timing>
+        <valveOpenLatencyMs>8</valveOpenLatencyMs>
+        <valveCloseLatencyMs>6</valveCloseLatencyMs>
+        <pneumaticTravelMs>2</pneumaticTravelMs>
+        <safetyMarginMs>1</safetyMarginMs>
+    </timing>
+
+    <!-- ============ Classifier thresholds ============ -->
+    <classifier>
+        <xrayEmptyMin>50000</xrayEmptyMin>
+        <xrayCoalMin>25000</xrayCoalMin>
+        <xrayGangueMax>25000</xrayGangueMax>
+        <cameraEmptyMin>180</cameraEmptyMin>
+        <cameraGangueMax>80</cameraGangueMax>
+        <minObjectWidthPx>5</minObjectWidthPx>
+    </classifier>
+
+    <!-- ============ Fusion strategy ============ -->
+    <fusion>
+        <!-- one of: XRayOnly | CameraOnly | AndReject | OrReject | XRayAuthoritative -->
+        <mode>XRayAuthoritative</mode>
+    </fusion>
+
+    <!-- ============ Logging / recording ============ -->
+    <logging>
+        <recordRawFrames>false</recordRawFrames>
+        <recordPath>./recordings</recordPath>
+        <logLevel>info</logLevel>
+    </logging>
+
+</config>
