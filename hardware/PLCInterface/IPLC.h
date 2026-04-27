@@ -32,11 +32,16 @@ struct PLCStatus {
     std::string lastError;
 };
 
+// Real implementation target: Beckhoff TwinCAT 3 + EtherCAT
+// Hardware: FC9022 (PCIe EtherCAT master) + EK1501 + EL2828×20 (160 DO)
+// Communication: ADS protocol over TCP/IP (port 48898)
+// Library: https://github.com/Beckhoff/ADS (open source, MIT)
+// Endpoint format for real impl: "ads://5.45.22.57.1.1:851" (AMS Net ID : AMS Port)
 class IPLC {
 public:
     virtual ~IPLC() = default;
 
-    virtual bool connect(const std::string& endpoint) = 0;   // e.g. "modbus-tcp://192.168.1.10:502"
+    virtual bool connect(const std::string& endpoint) = 0;   // mock: "mock://localhost" | real: "ads://x.x.x.x.x.x:851"
     virtual void disconnect() = 0;
 
     virtual bool setConveyor(ConveyorId id, bool on) = 0;

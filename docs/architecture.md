@@ -79,8 +79,35 @@ Camera   ──▶ CameraFrame ──┘                                        
 - POSIX threads (`-pthread`)
 - 可选：Qt 5.12+ / Qt 6（仅 GUI）
 - 可选：OpenCV 4（图像处理高级算子）
+- **Phase 5 新增**：[Beckhoff ADS C++ 库](https://github.com/Beckhoff/ADS)（开源，MIT 许可）
 
 第三方厂商 SDK 都通过 `hardware/*/Real*.cpp` 桥接，其余代码不引用。
+
+## 关键采购单信息（已从文件确认）
+
+### 控制系统：Beckhoff TwinCAT 3 + EtherCAT
+
+来源：山西永创自动化（2026-01-09 货物签收单）
+
+PC（FC9022 PCIe 主站卡）
+  → EtherCAT 总线（1ms 实时周期）
+    → EK1501 耦合器（光纤）
+      → EL2828 × 20（160路 24V 2A DO）← 驱动电磁阀 + 其他 I/O
+      → EL9410 × 4（总线供电）
+      → EL6070（TwinCAT 软件许可 Dongle）
+
+TwinCAT 3 Runtime（TC1100-0291，注册码 00386449）
+  ↕ ADS 协议（TCP/IP，端口 48898）
+Qt 上位机软件
+
+### X 射线源：VJ Technologies IXS200BP500P479
+
+来源：规格文件 SPC-P479 REV3（已取得）
+
+J3（RS232，9针母口）
+  Pin2=TX-，Pin3=RX+，Pin5=GND
+  → 上位机 COM 口 → IXRayReal 驱动
+  协议文档：P032-IXS-FIRMWARE-P032 R5（待取得）
 
 ## 构建
 

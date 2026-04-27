@@ -19,14 +19,21 @@
   3. 拆解固件（最后选项，需 JTAG）
 - **里程碑**：拿到协议后 → Phase 3 实现 `ValveDriverSerial`
 
-### Q2. X 射线源型号与 SDK
-- **现场设备**：装在 `光机防爆箱` 内
-- **未知**：
-  - 厂家、型号、kV/mA 范围、焦点尺寸
-  - 控制接口（USB / RS232 / 以太网）
-  - SDK 名称（旧项目用过 `XLibDll.lib`，需确认是否同款）
-- **获取途径**：现场拍铭牌；找采购合同
-- **里程碑**：Phase 4
+### Q2. ✅ 已解决！X 射线源型号已确认
+
+**VJ Technologies IXS200BP500P479**（美国，规格文件 SPC-P479 REV3）
+
+- 控制接口：**RS232（J3，9针母口，Pin2=TX-，Pin3=RX+，Pin5=GND）**
+- 协议文档：**P032-IXS-FIRMWARE-P032 R5**（VJ Technologies 内部文件，需索取）
+- 联锁：J2 Pin1&Pin2 必须短接才能出射线（安全门开关串联）
+- 最大参数：100–200 kV，0.2–2.5 mA，500 W
+
+**下一步**：
+1. 联系 VJ Technologies（www.vjtechnologies.com / +1-631-981-7100）索取 P032-IXS-FIRMWARE-P032 R5
+2. 或在旧项目代码中找 XLibDll 的 RS232 帧格式（可能是泓博自己封装的）
+3. 放入 `docs/hardware/protocols/vj-ixs-firmware-p032-r5.md`
+
+**里程碑**：Phase 4
 
 ### Q3. 凌云光相机型号
 - **照片可见**：银色金属外壳，长方形视窗，散热鳍片+风扇，蓝色 GigE 网线
@@ -48,25 +55,32 @@
 
 ## 高 P1（影响系统集成）
 
-### Q5. PLC 品牌与协议
-- **现场**：电气图标注 "来自PLC控制柜"，但未注明 PLC 品牌
-- **可能性**（按中国矿用项目常见度）：
-  1. 西门子 S7-200 SMART / S7-1200（Profinet / Modbus TCP）
-  2. 三菱 FX5U（MELSEC / MC 协议）
-  3. 汇川 H3U / H5U（Modbus RTU/TCP）
-  4. 信捷 XD 系列（Modbus RTU）
-- **获取途径**：现场拍照 PLC 模块铭牌
-- **里程碑**：Phase 5
+### Q5. ✅ 已解决！控制系统是 Beckhoff TwinCAT 3 + EtherCAT（不是传统 PLC！）
+
+**确认来源**：货物签收单（山西永创自动化工程有限公司，2026-01-09）
+
+| 模块 | 型号 | 功能 |
+|---|---|---|
+| EtherCAT 主站卡 | FC9022（PCIe） | 装工控机，驱动整个 EtherCAT 网络 |
+| EtherCAT 耦合器 | EK1501 × 2 | 光纤接口，防干扰 |
+| 数字量输出 | EL2828 × 20 | 160 路 24V 2A DO（核心执行 I/O）|
+| 软件运行时 | TC1100-0291 | TwinCAT 3 PLC Runtime，注册码 00386449 |
+| 许可密钥端子 | EL6070 × 1 | 软件 Dongle |
+| 电源端子 | EL9410 × 4 | 给总线供 24V |
+| 末端盖帽 | EL9011 × 2 | 端子排末端 |
+
+**上位机通信协议**：**Beckhoff ADS（Automation Device Specification）over TCP/IP**
+- 默认端口：48898（ADS）
+- 开源库：[ADS C++ 库](https://github.com/Beckhoff/ADS) / [TwinCAT.Ads NuGet]
+- 文档：[infosys.beckhoff.com](https://infosys.beckhoff.com/content/1033/tc3_ads_intro/index.html)
+- 关键概念：AMS Net ID / Port / Variable handle / Read-Write
+
+**里程碑**：Phase 5 → 用 Beckhoff ADS 库替换 Modbus，连接 TwinCAT 读写 EL2828 DO
 
 ### Q6. 变频器品牌与寄存器
-- **现场**：检测带 4 kW 变频器
-- **常见品牌**：汇川 MD310 / 西门子 V20 / 台达 MS300 / 英威腾 GD20
-- **关键寄存器**：
-  - 启停指令
-  - 频率给定
-  - 实际频率反馈
-  - 故障字
-- **获取途径**：拍铭牌 + 查厂家手册
+- **现场**：检测带 4 kW 变频器（可能也挂在 EtherCAT 总线上，或 Modbus 独立）
+- **注意**：有了 TwinCAT，变频器可能通过 EL6xxx 总线网关连接，而非直接 Modbus
+- **获取途径**：拍铭牌 + 查厂家手册；看 TwinCAT 项目源码（如果能拿到的话）
 - **里程碑**：Phase 5
 
 ### Q7. 探测器线阵驱动
