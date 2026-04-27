@@ -160,9 +160,31 @@
 | 弧检测 | 10s 内多次弧放电 → 锁定，需 Reset |
 | 冷却方式 | 集成散热器（油冷） |
 
-- **线阵探测器**：黑色长条，约 1.1 m 长，装在 `探测器防爆箱` 内
-  - 型号待确认
-  - **驱动协议**：旧项目用过 `XLibDll.lib`（Windows 闭源），具体厂家待确认
+**X 射线线阵探测器：Detection Technology Inc.（芬兰）Aurora 系统**
+
+来源：合同 00001861-15，签订日期 2026-01-04  
+供方：地太科特电子制造（北京）有限公司（DT Electronic Manufacturing, Beijing）  
+电话：+86 10 6783 2601
+
+| 型号 | 名称 | 数量 | 单价(CNY) | 用途 |
+|---|---|---|---|---|
+| **X-Card DA21506414C** | X 射线探测器阵列模块 | **17** | 3100 | 探测器像素阵列，17 块拼成完整宽度 |
+| **X-GCU GT** | 全局控制单元（Global Control Unit） | 1 | 5950 | 汇聚 17 块 X-Card 数据，与 PC 通信 |
+| Aurora X-Link 14p CBL 0.18m | 14针短连接线 | 14 | 20 | X-Card 模块间互联（菊花链） |
+| Aurora X-Link CONV CBL 1.00m | 转换连接线 | 3 | 50 | 延长/转换用 |
+| Power Cable 5m X-GCU-bare | X-GCU 供电线 5m | 1 | 165 | GCU 电源 |
+| Trigger Cable 15m X-GCU-bare | X-GCU 触发线 15m | 1 | 400 | 外部触发信号线（长 15m，从柜到探测器） |
+
+合同总价：59,645 CNY（+13%增值税 = 67,398.85 CNY）
+
+**系统推算**：
+- 17 块 X-Card × （每块像素数）= 完整探测器总像素
+- Detection Technology 典型配置：每块 128 像素 × 800μm 间距 ≈ 102mm/块 × 17 = 1.74m 覆盖宽度（适配矿用宽皮带）
+- **X-GCU GT** 是软件通信的唯一入口，通过 Aurora X-Link 总线汇聚所有模块数据
+- 与 PC 的接口：Detection Technology 提供专有 SDK（`Aurora SDK`），这正是旧项目 `XLibDll.lib` 的来源！
+
+**SDK 获取**：联系 Detection Technology（www.deetee.fi）或供方（地太科特北京）索要 Aurora SDK / GCU API Manual
+
 - **吹粉尘电磁阀**（100 W）：定时喷气清洁探测器视窗
 
 ### 3.2 凌云光（Lingyun Optics）工业相机模组（已到货）
