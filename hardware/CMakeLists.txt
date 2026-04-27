@@ -34,6 +34,8 @@ if(CGS_HAS_BECKHOFF_ADS)
     list(APPEND CGS_HARDWARE_SOURCES
         PLCInterface/PLCBeckhoff.cpp
         PLCInterface/PLCBeckhoff.h
+        ValveDriverInterface/ValveDriverEL2828.cpp
+        ValveDriverInterface/ValveDriverEL2828.h
     )
 endif()
 

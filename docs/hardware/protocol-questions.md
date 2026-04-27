@@ -4,20 +4,22 @@
 
 ## 紧急 P0（不解决软件无法上线）
 
-### Q1. AnySystem FaDriver-64 串口协议
-- **板卡型号**：`AnySystem_24V FaDriver-64 Ver1.8`
-- **接口**：2 × DB9（COM1, COM2）+ 24V 电源
-- **作用**：64 路高速电磁阀驱动，串口下命令、板载完成精确时序
-- **未知**：
-  - 波特率 / 校验位 / 停止位
-  - 命令包格式（帧头/长度/通道掩码/触发时间/校验）
-  - 是否支持"未来某时刻触发"的预约模式
-  - 是否回执 / 心跳 / 错误码
-- **获取途径**：
-  1. 找供应商（板上印有"AnySystem"商标，AGM FPGA 标）→ 索要 `通信协议手册.pdf`
-  2. 找原版上位机程序，串口抓包（推荐工具：CommMaster、串口大师 macOS 版）
-  3. 拆解固件（最后选项，需 JTAG）
-- **里程碑**：拿到协议后 → Phase 3 实现 `ValveDriverSerial`
+### Q1. ⚠️ 部分解决！气枪驱动有备选方案
+
+**FaDriver-64 协议仍未确认**（详见 [`protocols/fadriver-64.md`](protocols/fadriver-64.md)），但**软件已不阻塞**：
+
+**已实现的备选方案：通过 Beckhoff EL2828 直驱**
+- 配电柜里有 EL2828 × 20 = 160 路 24V/2A DO，足以直驱 64 路 DF8 电磁阀
+- ✅ `hardware/ValveDriverInterface/ValveDriverEL2828.cpp` 实现 `IValveDriver`
+- ✅ 1ms 调度循环，在 EtherCAT 周期内拉高/拉低对应通道
+- ✅ 时序精度 ~ 1 ms，满足 DF8 阀 5–15 ms 响应需求
+
+**FaDriver-64 仍需做的事（非阻塞，待现场调试日完成）**：
+- 现场拍 FaDriver-64 板上铭牌/二维码
+- 看电磁阀线缆走向：接 EL2828 还是 FaDriver-64？
+- 若接 FaDriver-64：用串口分线器 + 抓包工具捕获原版上位机的命令
+- 把抓获的字节流贴到 [`protocols/fadriver-64.md`](protocols/fadriver-64.md)
+- 1 天内可补完 `ValveDriverFaDriver64.cpp`（参照 `XRaySerial` 实现风格）
 
 ### Q2. ✅ 已完全解决！X 射线源协议已破解 + 实现
 
