@@ -22,7 +22,7 @@
 
 ## 1️⃣ Beckhoff EL2828 / TwinCAT（喷嘴驱动）
 
-> 原 AnySystem FaDriver-64 方案已废弃，喷嘴由 **EtherCAT EL2828 数字量输出** 直驱；上位机经 **ADS** 写 GVL BOOL。详见 [`inventory.md`](inventory.md)。
+> 喷嘴由 **EtherCAT EL2828 数字量输出** 直驱；上位机经 **ADS** 写 GVL BOOL。详见 [`inventory.md`](inventory.md)。
 
 位置：配电柜内 EtherCAT 从站导轨（与 CPU / EK 耦合器同柜）
 

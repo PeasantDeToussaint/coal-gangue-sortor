@@ -81,7 +81,7 @@
 | 废料输送带 | 5.5 kW | DZ47S-3P D20A | CJX2-1810 / JRS1D-9-13A | 三相 |
 | 压缩空气系统 | 75 kW | CDM3-250S 200A | — | 气枪气源主力 |
 | **相机及散热** | 100 W | DZ47S-2P C20A | NDR-240-24（24V电源） | **凌云光工业相机** |
-| 电磁阀控制板及电磁阀 | 100 W | DZ47S-2P C20A | NDR-240-24 | FaDriver-64 |
+| 电磁阀及驱动 | 100 W | DZ47S-2P C20A | NDR-240-24 | **EL2828（TwinCAT DO）→ DF8** |
 | 监控摄像头 | 50 W | DZ47S-2P C16A | NDR-240-5（5V电源） | 现场视频监控 |
 | 吹粉尘电磁阀 | 100 W | DZ47S-2P C16A | — | 探测器吹扫 |
 
@@ -107,10 +107,6 @@
 - TwinCAT 3 Runtime 运行在同一台工控机上，处理实时 I/O
 - **EL2828 × 20 = 160 路 DO**：推测 8 模块（64 路）用于气枪阀，其余 96 路用于皮带、信号灯等
 - 上位机软件（Qt 应用）通过 **ADS（Automation Device Specification）协议（TCP/IP）** 与 TwinCAT 通信
-
-~~**AnySystem FaDriver-64 Ver1.8**~~（已废弃，不再使用）：
-- 气枪电磁阀改由 **Beckhoff EL2828 直驱**，FaDriver-64 退出方案
-- 历史调研笔记保留于 `docs/hardware/protocols/fadriver-64.md`
 
 ### 2.4 保护与开关元件（采购成本明细）
 | 元件 | 型号 | 数量 |
@@ -252,11 +248,17 @@
 
 ---
 
-## 7. 已知未知点（→ 见 `protocol-questions.md`）
+## 7. 已知 / 未知点（权威展开见 [`protocol-questions.md`](protocol-questions.md)）
 
-1. ~~**FaDriver-64 串口协议**~~ — 已废弃，改用 Beckhoff EL2828 直驱，此项关闭
-2. **凌云光相机型号 / SDK** — 决定相机集成路线
-3. **PLC 品牌型号** — 决定 PLC 通信协议（西门子 S7 / 三菱 MC / 汇川 Modbus / 信捷 …）
-4. **X 射线源型号** — 决定 SDK 与功率/能量参数
-5. **皮带与喷嘴的实际几何距离** — 决定时序公式参数
-6. **探测器扫描频率（行频）** — 决定数据流速率
+下列与旧版清单对齐说明：**不少项已在别章或 Q 条目中解决**，此处只作索引，避免误以为「全都没有」。
+
+| # | 主题 | 状态 | 说明与位置 |
+|---|------|------|-------------|
+| 1 | ~~原独立阀板串口驱动~~ | **已关闭** | 改 Beckhoff EL2828 + ADS；见 `protocol-questions.md` **Q1** |
+| 2 | 凌云光相机型号 / SDK | **暂缓（Q3）** | 当前机台按文档为**纯 X 射线**；相机未到货，接口已预留 `ICamera` + Mock |
+| 3 | PLC 品牌与上位机协议 | **已解决（Q5）** | **Beckhoff TwinCAT 3 + EtherCAT + ADS**；见本文 §4、`beckhoff-ads.md`、`PLCBeckhoff.cpp` |
+| 4 | X 射线源型号与串口协议 | **已解决（Q2）** | **VJ IXS200BP500P479** + RS232 命令集；见本文 **§3.1**、`vj-xray-rs232.md`、`XRaySerial.cpp` |
+| 5 | 皮带与喷嘴几何、速度 | **现场实测（Q8）** | 设计值在 `config.example.xml` / 文档中有模板；**精确 `L_sd`、间距等必须现场卷尺/标定** |
+| 6 | 探测器行频 / 数据率 | **可配置 + 合同可查（Q7）** | Aurora 行频与积分时间等由 **GCU / `XPARA_*` 参数** 设定，见 `detection-tech-aurora.md`；具体 MHz 以厂商配置与现场线速为准，非「无文档」 |
+| — | 变频器寄存器 / 总线形态 | **待现场（Q6）** | 影响检测带速度读写方式；见 `protocol-questions.md` **Q6** |
+| — | DF8 阀响应、视窗吹扫等 | **标定 / 运维（Q9–Q10）** | 影响时序微调与维护策略，见 **Q8–Q10** |

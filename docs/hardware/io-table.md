@@ -1,7 +1,8 @@
 # I/O 点表
 
 > 本表是软件与硬件协同的核心契约文档。  
-> 所有信号、地址、协议在此对齐；任何变更必须先改本文件再改代码。
+> 所有信号、地址、协议在此对齐；任何变更必须先改本文件再改代码。  
+> **状态**：`⚙️ ADS 待配置` = 已确认上位机经 **Beckhoff ADS / TwinCAT** 交互，具体 GVL 符号或与变频器/AI 的绑定待现场对齐（见 [`protocol-questions.md`](protocol-questions.md) Q5、Q6）。
 
 ## 1. 信号方向定义
 
@@ -18,20 +19,20 @@
 | # | 信号名 | 方向 | 起点 | 终点 | 物理层 | 协议 | 时序要求 | 状态 | 备注 |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | 物料到位触发 | DI | 光电开关 | PLC | 24V 干接点 | 硬线 | 上升沿 | ✅ 已有 | 物料进入检测区起始 |
-| 2 | 触发同步给上位机 | DI | PLC | PC | RS232 / DI 卡 | TTL 或 Modbus | < 1 ms 抖动 | ❓ | 用于触发X射线/相机同帧采集 |
+| 2 | 触发同步给上位机 | DI | PLC | PC | 以太网 | Beckhoff ADS（读 GVL 中的触发/同步 BOOL 或计数器） | < 1 ms 抖动 | ⚙️ ADS 待配置 | 用于 X 射线/探测器与上位机节拍对齐；符号见 `beckhoff-ads.md` |
 | 3 | 急停状态回读 | DI | 急停按钮 + 安全继电器 | PLC + 主回路 | 24V 双回路 | 硬线 | < 100 ms | ✅ 已有 | 双回路冗余 |
 | 4 | 系统就绪 | DO | PLC | 三色绿灯 | 24V | 硬线 | — | ✅ 已有 | |
 | 5 | 系统运行 | DO | PLC | 三色黄灯 | 24V | 硬线 | — | ✅ 已有 | |
 | 6 | 系统故障 | DO | PLC | 三色红灯 + 蜂鸣 | 24V | 硬线 | — | ✅ 已有 | |
-| 7 | 上料带启停 | DO | PC / HMI | PLC → CJX2-2510 | Modbus / 硬线 | TBD | < 500 ms | ❓ | 7.5 kW |
-| 8 | 振动分筛启停 | DO | PC / HMI | PLC → CJX2-4011 | Modbus / 硬线 | TBD | < 500 ms | ❓ | 15 kW |
-| 9 | 粉末料带启停 | DO | PC / HMI | PLC → CJX2-1810 | Modbus / 硬线 | TBD | < 500 ms | ❓ | 4.5 kW |
-| 10 | **检测带变频频率** | AO / Cmd | PC / HMI | PLC → 变频器 | 0–10 V 或 Modbus | TBD | 写入响应 < 100 ms | ❓ | 4 kW，控制皮带速度（关键工艺参数） |
-| 11 | 检测带启停 | DO | PC / HMI | PLC → 变频器使能 | TBD | TBD | < 500 ms | ❓ | |
-| 12 | 合格料带启停 | DO | PC / HMI | PLC → CJX2-1810 | Modbus / 硬线 | TBD | < 500 ms | ❓ | 5.5 kW |
-| 13 | 废料带启停 | DO | PC / HMI | PLC → CJX2-1810 | Modbus / 硬线 | TBD | < 500 ms | ❓ | 5.5 kW |
-| 14 | 空压机启停 | DO | PLC | 接触器 | Modbus / 硬线 | TBD | — | ❓ | 75 kW，独立控制 |
-| 15 | 气源压力反馈 | AI | 压力传感器 | PLC | 4–20 mA | TBD | 1 Hz 巡检 | ❓ | 低压报警 |
+| 7 | 上料带启停 | DO | PC / HMI | PLC → CJX2-2510 | 以太网 + 硬线 | Beckhoff ADS → TwinCAT → DO/接触器（GVL 待对齐） | < 500 ms | ⚙️ ADS 待配置 | 7.5 kW |
+| 8 | 振动分筛启停 | DO | PC / HMI | PLC → CJX2-4011 | 以太网 + 硬线 | Beckhoff ADS → TwinCAT → DO/接触器（GVL 待对齐） | < 500 ms | ⚙️ ADS 待配置 | 15 kW |
+| 9 | 粉末料带启停 | DO | PC / HMI | PLC → CJX2-1810 | 以太网 + 硬线 | Beckhoff ADS → TwinCAT → DO/接触器（GVL 待对齐） | < 500 ms | ⚙️ ADS 待配置 | 4.5 kW |
+| 10 | **检测带变频频率** | AO / Cmd | PC / HMI | PLC → 变频器 | 以太网 ± 现场总线 | Beckhoff ADS（或经 EL6xxx 网关）；寄存器/Hz 映射 **Q6 待确认** | 写入响应 < 100 ms | ⚙️ ADS 待配置 | 4 kW，控制皮带速度（关键工艺参数） |
+| 11 | 检测带启停 | DO | PC / HMI | PLC → 变频器使能 | 以太网 + 硬线 | Beckhoff ADS → TwinCAT（GVL 待对齐） | < 500 ms | ⚙️ ADS 待配置 | |
+| 12 | 合格料带启停 | DO | PC / HMI | PLC → CJX2-1810 | 以太网 + 硬线 | Beckhoff ADS → TwinCAT → DO/接触器（GVL 待对齐） | < 500 ms | ⚙️ ADS 待配置 | 5.5 kW |
+| 13 | 废料带启停 | DO | PC / HMI | PLC → CJX2-1810 | 以太网 + 硬线 | Beckhoff ADS → TwinCAT → DO/接触器（GVL 待对齐） | < 500 ms | ⚙️ ADS 待配置 | 5.5 kW |
+| 14 | 空压机启停 | DO | PLC | 接触器 | TwinCAT 内部逻辑 + 硬线 | TwinCAT 程序（上位机经 ADS 可间接联锁） | — | ⚙️ ADS 待配置 | 75 kW，独立控制 |
+| 15 | 气源压力反馈 | AI | 压力传感器 | PLC | 4–20 mA → EL1xxx AI | Beckhoff ADS 读 AI 映像（通道待配置） | 1 Hz 巡检 | ⚙️ ADS 待配置 | 低压报警 |
 | 16 | 吹粉尘电磁阀 | DO | PLC | 阀 | 24V | 硬线 | 定时器或事件 | ✅ 已有 | 探测器视窗清洁 |
 | 17 | 各电机过载 | DI | 热继电器 | PLC | 24V 干接点 | 硬线 | — | ✅ 已有 | 故障联锁 |
 
@@ -39,15 +40,15 @@
 
 | # | 信号名 | 方向 | 起点 | 终点 | 物理层 | 协议 | 时序要求 | 状态 | 备注 |
 |---|---|---|---|---|---|---|---|---|---|
-| 18 | X射线源 高压使能 | DO | PC | X射线控制器 | RS232 / USB | 厂商SDK | < 5 s 启辉 | ❓ | 慢启动，需预热 |
-| 19 | X射线 管电压设定 | AO / Cmd | PC | X射线控制器 | 厂商SDK | 厂商SDK | — | ❓ | kV 设定值 |
-| 20 | X射线 管电流设定 | AO / Cmd | PC | X射线控制器 | 厂商SDK | 厂商SDK | — | ❓ | mA 设定值 |
-| 21 | X射线 状态回读 | AI / Cmd | X射线控制器 | PC | 厂商SDK | 厂商SDK | 1 Hz 巡检 | ❓ | 联锁、温度、故障 |
-| 22 | X射线 帧数据 | DataIn | 线阵探测器 | PC | GigE / USB / CameraLink | 厂商SDK（旧项目用 XLibDll） | 行频 1–4 kHz | ❓ | 16 bit 单行 N 像素 |
-| 23 | 相机 触发命令 | Cmd | PC | 凌云光相机 | GigE Vision | GenICam / SDK | 软触发 < 1 ms | ❓ | 或硬触发线 |
-| 24 | 相机 帧数据 | DataIn | 凌云光相机 | PC | GigE 千兆网 | GigE Vision (GenICam) | 与 X 射线同步 | ❓ | 灰度或彩色 |
-| 25 | 光源使能 | DO | PC / PLC | 光筒1100 LED 驱动器 | 24V / DALI / TBD | TBD | — | ❓ | 与相机同步 |
-| 26 | 光源亮度 | AO | PC | LED 驱动器 | PWM / 0-10V / TBD | TBD | — | ❓ | 调光 |
+| 18 | X射线源 高压使能 | DO | PC | X射线控制器 | RS232（J3 DB9） | VJ ASCII 命令（`vj-xray-rs232.md`） | < 5 s 启辉 | ✅ 已有 | `XRaySerial.cpp`；慢启动，需预热 |
+| 19 | X射线 管电压设定 | AO / Cmd | PC | X射线控制器 | RS232 | VJ `VP` / `CP` 等命令 | — | ✅ 已有 | kV / μA 设定见协议笔记 |
+| 20 | X射线 管电流设定 | AO / Cmd | PC | X射线控制器 | RS232 | 同上 | — | ✅ 已有 | 与行 19 同一串口会话 |
+| 21 | X射线 状态回读 | AI / Cmd | X射线控制器 | PC | RS232 | VJ `STAT` / `MON` / `FLT` 等 | 1 Hz 巡检 | ✅ 已有 | 联锁、温度、故障字 |
+| 22 | X射线 帧数据 | DataIn | 线阵探测器 | PC | GigE（GCU） | Aurora X-LIB SDK（`detection-tech-aurora.md`） | 行频可配（积分时间/参数） | ✅ 已有 | `DetectorAurora.cpp`；16 bit 单行 |
+| 23 | 相机 触发命令 | Cmd | PC | 凌云光相机 | GigE Vision | GenICam / SDK | 软触发 < 1 ms | ❓ | **设备未到货，暂缓 Q3**；或硬触发线 |
+| 24 | 相机 帧数据 | DataIn | 凌云光相机 | PC | GigE 千兆网 | GigE Vision (GenICam) | 与 X 射线同步 | ❓ | **暂缓 Q3** |
+| 25 | 光源使能 | DO | PC / PLC | 光筒1100 LED 驱动器 | 24V / DALI / TBD | TBD | — | ❓ | **暂缓 Q4**（与相机同步） |
+| 26 | 光源亮度 | AO | PC | LED 驱动器 | PWM / 0-10V / TBD | TBD | — | ❓ | **暂缓 Q4** |
 
 ## 4. 执行层信号（喷射 → 高速、抖动敏感）
 
@@ -55,7 +56,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | 27 | 喷嘴 1–64 触发（上位机 → PLC） | Cmd | PC | TwinCAT（EL2828 映像） | 以太网 | Beckhoff ADS（TCP 48898） | EtherCAT 任务周期级 | ✅ 已有 | `ValveDriverEL2828`，见 beckhoff-ads.md |
 | 28 | DF8 阀 1–64 驱动 | DO | EL2828（TwinCAT） | DF8 电磁阀 | 24V 高速 | 硬线 | 5–15 ms 响应 | ✅ 已有 | 工厂标定 |
-| 29 | 气源压力 | AI | 压力开关 | PC（可选） | 4–20 mA / 数字阈值 | TBD | 慢 | ❓ | 喷射前自检 |
+| 29 | 气源压力 | AI | 压力开关 | PC（可选） | 4–20 mA / 数字阈值 | 经 PLC AI 映像 + ADS 读（或直连 AI 卡） | 慢 | ⚙️ ADS 待配置 | 喷射前自检；与行 15 同源信号不同消费端时可合并描述 |
 
 ## 5. 上位机内部数据流
 

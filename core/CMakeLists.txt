@@ -1,6 +1,8 @@
 set(CGS_CORE_SOURCES
     Classifier/Classifier.cpp
     Classifier/Classifier.h
+    Config/ConfigLoader.cpp
+    Config/ConfigLoader.h
     Fusion/FusionPolicy.cpp
     Fusion/FusionPolicy.h
     NozzleMapping/NozzleMapper.cpp
@@ -23,6 +25,8 @@ add_library(cgs_core STATIC ${CGS_CORE_SOURCES})
 target_include_directories(cgs_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+target_link_libraries(cgs_core PUBLIC tinyxml2)
 
 if(CGS_HAS_SERIAL)
     target_compile_definitions(cgs_core PUBLIC CGS_HAS_SERIAL=1)

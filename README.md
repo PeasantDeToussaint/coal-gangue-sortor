@@ -18,7 +18,7 @@
 | Phase 7 | ✅ | Python 离线工具（皮带标定 / 时序仿真 / 数据回放 / 喷嘴自检） |
 | Phase 8 | ✅ | 硬件搭建手册 + 现场安全规程 |
 
-**软件层全部完成**，等待现场硬件 SDK / 协议交付后即可切换至真实模式上线。
+**软件层全部完成**；主要机侧协议与驱动已在仓库实现（**VJ X 射线 RS232**、**Aurora 探测器 SDK 适配**、**Beckhoff ADS + EL2828 阀驱动**、**PLCBeckhoff**）。上线前剩余多为**现场项**：几何与皮带速度标定（Q8）、DF8 阀响应实测（Q9）、变频器/寄存器形态确认（Q6）、Aurora 库文件与 ADS 路由部署、工业相机与光源到货后的集成（Q3/Q4）。
 
 ---
 
@@ -53,6 +53,7 @@
 ```
 coal-gangue-sorter/
 ├── core/                   纯 C++17 算法核心（无 Qt 依赖）
+│   ├── Config/             config.xml 解析（tinyxml2）
 │   ├── Classifier/         X 射线 / 相机分类器，像素段合并
 │   ├── Fusion/             双传感器融合策略
 │   ├── NozzleMapping/      像素 → 喷嘴通道映射
@@ -130,11 +131,17 @@ cmake -B build \
 # 编译
 cmake --build build -j$(nproc)
 
-# 运行 GUI（Mock 模式，无需任何硬件）
-./build/app/coal_gangue_sorter_gui --mock
+# 准备配置（仓库根目录执行；也可设置环境变量 CGS_CONFIG_PATH 指向任意路径）
+cp config/config.example.xml config/config.xml
+
+# 运行 GUI（默认读取 config/config.xml；无文件时回退内置 Mock 参数）
+./build/app/coal_gangue_sorter_gui
 
 # 运行命令行（运行 10 秒后退出）
 ./build/app/coal_gangue_sorter_console --seconds 10
+
+# 指定配置文件
+./build/app/coal_gangue_sorter_console --config /path/to/config.xml
 
 # 执行单元测试
 cd build && ctest --output-on-failure
@@ -149,6 +156,10 @@ Mock 模式下可以观察到：X 射线 / 相机伪数据流、64 路喷嘴矩�
 | `CGS_HAS_SERIAL=ON` | 启用 POSIX/Win32 串口（VJ X 射线 RS232） |
 | `CGS_HAS_AURORA_SDK=ON` | 启用 Detection Technology Aurora 探测器 SDK |
 | `CGS_HAS_BECKHOFF_ADS=ON` | 启用 Beckhoff TwinCAT 3 ADS（PLC + EL2828 阀门） |
+
+若已在本机 `third_party/ads/` 克隆 [Beckhoff/ADS](https://github.com/Beckhoff/ADS)，CMake 会自动把 `CGS_BECKHOFF_ADS_DIR` 指到该目录（仍可用 `-DCGS_HAS_BECKHOFF_ADS=ON` 打开编译）。
+
+**Aurora（Windows）**：将旧测厚项目 `Thickness Measure_kenya hebei jinwanli/lib/release/XLibDll.lib` 与 `bin/release/XLibDll.dll` 复制到 `third_party/aurora-sdk/lib/`（该目录下二进制已被 `.gitignore` 忽略，不入库）。在 **macOS / Linux** 上需厂商提供的 `libxlib.so` 才能链接 `CGS_HAS_AURORA_SDK=ON`。
 
 ---
 
@@ -199,7 +210,7 @@ X 射线分类基于 16-bit 像素强度阈值（值越大表示穿透越强，�
 
 ## 配置说明
 
-将 `config/config.example.xml` 复制为 `config.xml`（已被 `.gitignore` 忽略），按现场实际调整：
+将 `config/config.example.xml` 复制为 `config/config.xml`（或设置环境变量 `CGS_CONFIG_PATH`），按现场实际调整：
 
 ```xml
 <!-- 硬件类型：mock | aurora | vj-serial | el2828 | beckhoff -->
@@ -224,7 +235,7 @@ X 射线分类基于 16-bit 像素强度阈值（值越大表示穿透越强，�
 </timing>
 ```
 
-> **注意：** 当前命令行与 GUI 入口对配置文件的加载尚未实现，参数在代码中硬编码。XML 解析集成列为后续工作。
+> **注意：** 命令行与 GUI 会尝试加载 `config/config.xml`（或 `--config` / `CGS_CONFIG_PATH`）；若文件不存在则使用内置默认参数（`--real` 仅在该情况下启用「真实硬件预设」类型名）。
 
 ---
 
@@ -295,7 +306,6 @@ X 射线分类基于 16-bit 像素强度阈值（值越大表示穿透越强，�
 
 ## 已知局限 / 后续工作
 
-- **XML 配置加载**：`config.xml` 模板已完善，但 C++ 入口点尚未解析 XML，参数当前硬编码在源码中。
 - **相机融合主循环接入**：`PipelineEngine` 已预留接口，但当前主循环将相机输入固定传入 `Material::Unknown`，待相机帧同步逻辑完成后接通。
 - **根目录 `sorter` 二进制**：疑似遗留构建产物，建议确认后清理。
 

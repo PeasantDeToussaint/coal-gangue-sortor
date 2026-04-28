@@ -6,7 +6,7 @@
 
 ### Q1. ✅ 已关闭！气枪驱动方案确认：Beckhoff EL2828 直驱
 
-**FaDriver-64 已废弃**，不再使用。气枪由 Beckhoff EL2828 直驱：
+**原独立 64 路串口阀板方案已废弃**（无保留文档）。气枪由 Beckhoff EL2828 直驱：
 
 - EL2828 × 20 = 160 路 24V/2A DO，其中 64 路对应 DF8 电磁阀
 - ✅ `hardware/ValveDriverInterface/ValveDriverEL2828.cpp` 已实现 `IValveDriver`
@@ -80,8 +80,8 @@ PipelineEngine → ValveDriverEL2828 → ADS → TwinCAT → EL2828 → DF8 阀 
 - ✅ 50Hz 后台变化检测线程（光电触发 + 急停事件）
 
 **最后一步**（部署时执行）：
-- `git clone https://github.com/Beckhoff/ADS third_party/ads`
-- 编译开关：`cmake -DCGS_HAS_BECKHOFF_ADS=ON -DCGS_BECKHOFF_ADS_DIR=third_party/ads`
+- `git clone https://github.com/Beckhoff/ADS third_party/ads`（若目录已存在可跳过；CMake 会自动设置 `CGS_BECKHOFF_ADS_DIR`）
+- 编译开关：`cmake -DCGS_HAS_BECKHOFF_ADS=ON`（或显式 `-DCGS_BECKHOFF_ADS_DIR=third_party/ads`）
 - 与 PLC 工程师对齐 GVL 变量名（约 15 个，详见协议文档）
 
 ### Q6. 变频器品牌与寄存器
@@ -101,14 +101,15 @@ PipelineEngine → ValveDriverEL2828 → ADS → TwinCAT → EL2828 → DF8 阀 
 - 完整接入文档：**[`docs/hardware/protocols/detection-tech-aurora.md`](protocols/detection-tech-aurora.md)** ✅
 
 **已完成**：
-- ✅ 旧项目 `include/DetInclude/` 47 个头文件 = 完整 Aurora X-LIB SDK
+- ✅ 旧项目 `include/DetInclude/` 头文件集 = 完整 Aurora X-LIB SDK（本仓库 `third_party/aurora-sdk/include/`）
 - ✅ 旧项目 `DetectorLib.cpp` = 完整使用范例
 - ✅ 75 个 `XPARA_*` 参数枚举已提取
 - ✅ 新仓库 `hardware/DetectorInterface/DetectorAurora.cpp` 已实现 `IDetector` 接口（条件编译 `CGS_HAS_AURORA_SDK`）
 
 **最后一步**（部署时执行）：
-- 把 `include/DetInclude/*.h` 拷贝到 `third_party/aurora-sdk/include/`
-- 拿到 `xlib.dll` / `xlib.lib`（向地太科特北京 +86 10 6783 2601 索取）放到 `third_party/aurora-sdk/lib/`
+- 头文件：`third_party/aurora-sdk/include/` 已包含完整 `DetInclude` 头文件集。
+- **Windows**：将旧测厚项目 `Thickness Measure_kenya hebei jinwanli/lib/release/XLibDll.lib` 与 `bin/release/XLibDll.dll` 复制到 `third_party/aurora-sdk/lib/`（或向地太科特北京 +86 10 6783 2601 索取）；该目录下 `*.dll`/`*.lib` 已被 `.gitignore` 排除，不入 Git。
+- **Linux / macOS**：需厂商提供的 `libxlib.so`（或 macOS 等效库）方可链接 Aurora 适配器。
 - 编译开关：`cmake -DCGS_HAS_AURORA_SDK=ON -DCGS_AURORA_SDK_DIR=third_party/aurora-sdk`
 
 ## 中 P2（影响标定精度）

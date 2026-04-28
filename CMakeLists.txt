@@ -14,6 +14,9 @@ option(CGS_HAS_BECKHOFF_ADS "Enable Beckhoff TwinCAT ADS adapter (needs Beckhoff
 set(CGS_AURORA_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/aurora-sdk"
     CACHE PATH "Path to Aurora SDK root (contains include/ + lib/)")
 set(CGS_BECKHOFF_ADS_DIR "" CACHE PATH "Path to Beckhoff/ADS source tree (clone of github.com/Beckhoff/ADS)")
+if(NOT CGS_BECKHOFF_ADS_DIR AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/ads/AdsLib/AdsLib.h")
+    set(CGS_BECKHOFF_ADS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/ads" CACHE PATH "Path to Beckhoff/ADS source tree (clone of github.com/Beckhoff/ADS)" FORCE)
+endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
@@ -21,6 +24,13 @@ endif()
 
 # Threads (used by mock detector / camera).
 find_package(Threads REQUIRED)
+
+include(FetchContent)
+FetchContent_Declare(
+    tinyxml2
+    GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
+    GIT_TAG 10.0.0)
+FetchContent_MakeAvailable(tinyxml2)
 
 add_subdirectory(core)
 add_subdirectory(hardware)

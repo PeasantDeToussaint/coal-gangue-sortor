@@ -1,6 +1,6 @@
 # Detection Technology Aurora SDK (X-LIB)
 
-> **来源**：从旧项目"金万利测厚机"（Industrial-Thickness-Measurement-System）的 `bin/` 和 `include/DetInclude/` 目录中提取。  
+> **来源**：从旧项目「金万利测厚机」`~/Thickness Measure_kenya hebei jinwanli/` 的 `include/DetInclude/` 与 `lib/release/XLibDll.lib`、`bin/release/XLibDll.dll` 同步到本目录（头文件已入库；Windows 二进制不入 Git，见仓库根 `.gitignore`）。  
 > **供应商**：Detection Technology Inc.（芬兰），中国代理：地太科特电子制造（北京）有限公司  
 > **联系**：+86 10 6783 2601  
 > **文档编号**：DS0000087 "Programmer's Manual of X-LIB Software Library"

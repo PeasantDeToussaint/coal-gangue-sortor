@@ -1,6 +1,7 @@
 add_executable(cgs_tests
     test_main.cpp
     test_harness.h
+    test_config_loader.cpp
     test_classifier.cpp
     test_nozzle_mapper.cpp
     test_timing.cpp

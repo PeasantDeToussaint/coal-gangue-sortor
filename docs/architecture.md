@@ -4,20 +4,21 @@
 
 ```
 ┌─────────────────────────────────────────────┐
-│  app/    Qt GUI 主程序 + 插件                 │  Phase 6
+│  app/    Qt GUI 主程序 + 插件                 │  Phase 6 ✅
 ├─────────────────────────────────────────────┤
 │  core/   纯 C++ 算法（无 Qt 依赖）             │  Phase 2 ✅
+│   ├── Config            config.xml 解析（tinyxml2）│
 │   ├── Classifier        X射线/相机 单帧分类     │
 │   ├── Fusion            双信号融合策略         │
 │   ├── NozzleMapping     像素 → 喷嘴ID         │
 │   └── Timing            速度 + 距离 → 延迟     │
 ├─────────────────────────────────────────────┤
 │  hardware/  抽象接口（Phase 1 ✅）+ 实现        │
-│   ├── XRayInterface     X射线源（kV/mA/启停）  │  Phase 4
-│   ├── DetectorInterface 线阵探测器（行帧流）   │  Phase 4
-│   ├── CameraInterface   工业相机（GigE Vision）│  Phase 4
-│   ├── ValveDriverInterface  64路阀驱动        │  Phase 3
-│   └── PLCInterface      皮带/变频/灯/急停      │  Phase 5
+│   ├── XRayInterface     X射线源（kV/mA/启停）  │  Phase 4 ✅
+│   ├── DetectorInterface 线阵探测器（行帧流）   │  Phase 4 ✅
+│   ├── CameraInterface   工业相机（GigE Vision）│  暂缓（设备未到货）
+│   ├── ValveDriverInterface  64路阀驱动        │  Phase 3 ✅
+│   └── PLCInterface      皮带/变频/灯/急停      │  Phase 5 ✅
 └─────────────────────────────────────────────┘
 ```
 
@@ -77,9 +78,10 @@ Camera   ──▶ CameraFrame ──┘                                        
 
 - C++17 (std::chrono, std::filesystem 可用)
 - POSIX threads (`-pthread`)
+- [tinyxml2](https://github.com/leethomason/tinyxml2)（CMake FetchContent 自动拉取，解析 `config.xml`）
 - 可选：Qt 5.12+ / Qt 6（仅 GUI）
-- 可选：OpenCV 4（图像处理高级算子）
-- **Phase 5 新增**：[Beckhoff ADS C++ 库](https://github.com/Beckhoff/ADS)（开源，MIT 许可）
+- 可选：[Beckhoff/ADS C++ 库](https://github.com/Beckhoff/ADS)（MIT；克隆到 `third_party/ads/`，CMake 自动检测）
+- 可选：Detection Technology Aurora X-LIB（Windows `.dll`/`.lib` 在 `third_party/aurora-sdk/lib/`，不入 Git）
 
 第三方厂商 SDK 都通过 `hardware/*/Real*.cpp` 桥接，其余代码不引用。
 
@@ -112,23 +114,38 @@ J3（RS232，9针母口）
 ## 构建
 
 ```bash
-# 推荐：CMake
-cmake -B build -DCGS_BUILD_TESTS=ON -DCGS_BUILD_CONSOLE=ON
+# Mock 模式（无硬件，开发/CI 用）
+cmake -B build -DCGS_BUILD_TESTS=ON -DCGS_BUILD_CONSOLE=ON -DCGS_BUILD_GUI=ON
 cmake --build build -j
 ctest --test-dir build
 ./build/app/coal_gangue_sorter_console --seconds 5
 
-# 备选：直接 clang++（环境无 cmake 时）
-clang++ -std=c++17 -pthread -Icore -Ihardware \
-  core/**/*.cpp hardware/**/*.cpp app/main_console.cpp \
-  -o coal_gangue_sorter_console
+# 真实硬件模式（Windows 工控机，已有 third_party/ads/ 和 aurora-sdk/lib/）
+cmake -B build \
+  -DCGS_BUILD_GUI=ON \
+  -DCGS_HAS_SERIAL=ON \
+  -DCGS_HAS_AURORA_SDK=ON \
+  -DCGS_HAS_BECKHOFF_ADS=ON
+cmake --build build -j
+
+# 配置文件（第一次部署）
+cp config/config.example.xml config/config.xml
+# 编辑 config.xml：填串口号、ADS endpoint、实测几何/时序参数
+./build/app/coal_gangue_sorter_gui
 ```
 
-## 后续阶段路线（与 plan 对齐）
+## 完成情况（全部 Phase 已交付）
 
-- Phase 3：Beckhoff EL2828 经 ADS → `hardware/ValveDriverInterface/ValveDriverEL2828.cpp`（已实现）
-- Phase 4：X射线 + 凌云光 SDK → `XRayLib.cpp` + `CameraLingyun.cpp`
-- Phase 5：PLC（Beckhoff ADS；其他现场协议按需）→ `PLCBeckhoff.cpp` 等
-- Phase 6：Qt GUI 插件主框架 → `app/MainWindow` + `app/plugins/*`
-- Phase 7：标定脚本 + 离线回放 → `tools/*.py`
-- Phase 8：硬件搭建手册 → `docs/hardware/build-guide.md`
+| Phase | 内容 | 状态 |
+|-------|------|------|
+| 1 | 仓库骨架 + 5 个抽象接口 + Mock | ✅ |
+| 2 | 核心算法 + 29 个单元测试 | ✅ |
+| 3 | Beckhoff EL2828 经 ADS 直驱（`ValveDriverEL2828.cpp`） | ✅ |
+| 4 | VJ X射线 RS232（`XRaySerial.cpp`）+ Aurora 探测器（`DetectorAurora.cpp`） | ✅ |
+| 5 | Beckhoff TwinCAT ADS 适配器（`PLCBeckhoff.cpp`）+ 变量约定 | ✅ |
+| 6 | Qt GUI（瀑布图 / 矩阵 / 调参面板 / 统计） | ✅ |
+| 7 | Python 工具（标定 / 仿真 / 回放 / 自检） | ✅ |
+| 8 | 硬件手册 + 安全规程 | ✅ |
+| — | XML 配置加载（`core/Config/ConfigLoader`，tinyxml2） | ✅ |
+
+**剩余工作全部为现场事项**：几何实测 (Q8)、DF8 阀响应实测 (Q9)、与 PLC 工程师对齐 GVL 变量名、变频器接入形态确认 (Q6)。详见 `docs/hardware/protocol-questions.md`。
