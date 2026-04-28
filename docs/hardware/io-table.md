@@ -53,10 +53,9 @@
 
 | # | 信号名 | 方向 | 起点 | 终点 | 物理层 | 协议 | 时序要求 | 状态 | 备注 |
 |---|---|---|---|---|---|---|---|---|---|
-| 27 | 喷嘴 1–64 触发 | DataOut | PC | FaDriver-64 | RS232 DB9 | **待破解** | 触发抖动 < 1 ms | ❌ | **核心未知点** |
-| 28 | FaDriver-64 状态 | Cmd | FaDriver-64 | PC | RS232 DB9 | **待破解** | 1 Hz 心跳 | ❌ | 自检、错误码 |
-| 29 | DF8 阀 1–64 驱动 | DO | FaDriver-64 | DF8 电磁阀 | 24V 高速 | 硬线 | 5–15 ms 响应 | ✅ 已有 | 工厂标定 |
-| 30 | 气源压力 | AI | 压力开关 | PC（可选） | 4–20 mA / 数字阈值 | TBD | 慢 | ❓ | 喷射前自检 |
+| 27 | 喷嘴 1–64 触发（上位机 → PLC） | Cmd | PC | TwinCAT（EL2828 映像） | 以太网 | Beckhoff ADS（TCP 48898） | EtherCAT 任务周期级 | ✅ 已有 | `ValveDriverEL2828`，见 beckhoff-ads.md |
+| 28 | DF8 阀 1–64 驱动 | DO | EL2828（TwinCAT） | DF8 电磁阀 | 24V 高速 | 硬线 | 5–15 ms 响应 | ✅ 已有 | 工厂标定 |
+| 29 | 气源压力 | AI | 压力开关 | PC（可选） | 4–20 mA / 数字阈值 | TBD | 慢 | ❓ | 喷射前自检 |
 
 ## 5. 上位机内部数据流
 
@@ -106,5 +105,5 @@
 | 10 | `IPLC` | `setBeltSpeedHz(double)` |
 | 18–22 | `IXRay` + `IDetector` | `start()` / `setKv()` / `pollFrame()` |
 | 23–24 | `ICamera` | `triggerSoft()` / `pollFrame()` |
-| 27 | `IValveDriver` | `scheduleFire(NozzleSchedule)` |
-| 28 | `IValveDriver` | `selfTest()` / `heartbeat()` |
+| 27 | `IValveDriver` | `schedule()`（ADS → EL2828） |
+| 28 | `IValveDriver` | `selfTest()` / `pollStatus()` |

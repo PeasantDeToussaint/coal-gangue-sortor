@@ -20,22 +20,22 @@
 
 ---
 
-## 1️⃣ FaDriver-64 板（电磁阀驱动板）
+## 1️⃣ Beckhoff EL2828 / TwinCAT（喷嘴驱动）
 
-位置：电磁阀控制柜 / 气枪龙门架附近的小机箱内
+> 原 AnySystem FaDriver-64 方案已废弃，喷嘴由 **EtherCAT EL2828 数字量输出** 直驱；上位机经 **ADS** 写 GVL BOOL。详见 [`inventory.md`](inventory.md)。
+
+位置：配电柜内 EtherCAT 从站导轨（与 CPU / EK 耦合器同柜）
 
 | 信息 | 拍 / 抄 | 备注 |
 |---|---|---|
-| 品牌（板上 logo） | □ | "AnySystem" 已知 |
-| 型号 | □ | `FaDriver-64 Ver1.8` 已知 |
-| 板上二维码 | □ 扫码 | 跳转到哪个网站？记下 URL |
-| 主控芯片型号 | □ | AGM xxxx（FPGA） |
-| 厂家联系方式（板边丝印） | □ | 电话 / 网址 |
-| DB9 引脚定义图 | □ | 一般在板上丝印 |
-| 24V 电源接法 | □ | + / − 标注 |
-| 输出端子（Fa1-1 Fa8-9 …） | □ | 拍接线表 |
+| EL2828 模块丝印型号与数量 | □ | 如 EL2828 × N |
+| EtherCAT 拓扑顺序 | □ | 从 EK 耦合器起的模块顺序 |
+| 喷嘴通道对应 PLC 变量名 | □ | 如 `MAIN.bValveCh01` … `bValveCh64` |
+| 端子到 DF8 阀线号表 | □ | 与电气图 XT1 对照 |
+| TwinCAT Runtime / 工程名 | □ | 便于 ADS NetId |
+| 控制 PC 网卡 IP 与 PLC 是否同网段 | □ | ADS 路由 |
 
-**拿到协议**：联系厂家索要"FaDriver-64 串口通信协议手册.pdf"
+**协议文档**：[`docs/hardware/protocols/beckhoff-ads.md`](protocols/beckhoff-ads.md)
 
 ---
 
@@ -183,7 +183,7 @@
 按子设备建子文件夹：
 ```
 site-survey-2026-MM-DD/
-├── fadriver/
+├── beckhoff/
 ├── camera/
 ├── xray/
 ├── detector/

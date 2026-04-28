@@ -45,7 +45,7 @@
 | **PLC** | EL6070 软件许可 dongle | 1 | 同上 |
 | **PLC** | TC1100-0291 TwinCAT 3 PLC Runtime | 1 | 同上（注册码 00386449） |
 | **PLC** | CU1521-0000 USB EtherCAT 扩展 | 1 | 同上 |
-| **气枪** | AnySystem FaDriver-64 Ver1.8 | 1 | 待补（备用方案） |
+| **气枪执行** | 喷嘴阵列 + 气管；电磁阀由 **EL2828** 直驱（无独立 FaDriver 板） | 1 套 | 见气路章节与 [`inventory.md`](inventory.md) |
 
 完整 BOM 见 [`inventory.md`](inventory.md)。
 

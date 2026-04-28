@@ -2,13 +2,9 @@
 #define CGS_VALVEDRIVEREL2828_H
 
 // ValveDriver via Beckhoff EL2828 digital outputs (over ADS).
-// This is the recommended path: it leverages the already-installed Beckhoff
-// hardware (FC9022 + EL2828 x 20) and avoids the unresolved FaDriver-64
-// proprietary protocol. Timing precision is bounded by the EtherCAT cycle
-// (typically 1 ms), which matches the DF8 valve response time of 5–15 ms.
-//
-// For sub-millisecond timing, fallback to ValveDriverFaDriver64 once that
-// protocol is reverse-engineered.
+// Uses installed Beckhoff stack (FC9022 + EL2828 modules). Timing precision
+// is bounded by the EtherCAT / TwinCAT task cycle (typically ~1 ms), which
+// matches the DF8 valve mechanical response time of 5–15 ms.
 
 #include "IValveDriver.h"
 

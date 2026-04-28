@@ -42,7 +42,7 @@ Camera   ──▶ CameraFrame ──┘                                        
                                   std::vector<NozzleCommand> ──▶ ValveDriver
                                                                      │
                                                                      ▼
-                                     RS232 ──▶ FaDriver-64 ──▶ DF8 阀 ──▶ 气枪
+                        Beckhoff ADS ──▶ TwinCAT / EL2828 ──▶ DF8 阀 ──▶ 气枪
 ```
 
 ## 关键设计决策
@@ -57,10 +57,10 @@ Camera   ──▶ CameraFrame ──┘                                        
 - 这样断电重启 / 时区切换都不会影响触发时序
 
 ### 3. 喷嘴命令是"批量预约"，不是"立即触发"
-- 上位机把未来的喷射时刻打包发给 FaDriver-64
-- 板上做精确触发（10us 量级）
+- 上位机把未来的喷射时刻打包交给 `IValveDriver`（生产路径为 `ValveDriverEL2828`：ADS 写 GVL BOOL）
+- TwinCAT / EtherCAT 周期（通常约 1 ms）内翻转到目标 DO，与 DF8 阀 5–15 ms 机械响应相匹配
 - 上位机只需要保证"最迟在执行前 N ms 把命令到位"
-- 这是 64 路高速分选系统的标准做法
+- 这是 64 路分选系统的常见做法（周期由现场 PLC 任务与总线配置决定）
 
 ### 4. 分类算法和融合策略分离
 `Classifier` 输出每像素初判，`FusionPolicy` 决定如何把双源结合：
@@ -126,9 +126,9 @@ clang++ -std=c++17 -pthread -Icore -Ihardware \
 
 ## 后续阶段路线（与 plan 对齐）
 
-- Phase 3：FaDriver-64 串口协议 → `hardware/ValveDriverInterface/ValveDriverSerial.cpp`
+- Phase 3：Beckhoff EL2828 经 ADS → `hardware/ValveDriverInterface/ValveDriverEL2828.cpp`（已实现）
 - Phase 4：X射线 + 凌云光 SDK → `XRayLib.cpp` + `CameraLingyun.cpp`
-- Phase 5：PLC（最可能 Modbus TCP）→ `PLCModbus.cpp`
+- Phase 5：PLC（Beckhoff ADS；其他现场协议按需）→ `PLCBeckhoff.cpp` 等
 - Phase 6：Qt GUI 插件主框架 → `app/MainWindow` + `app/plugins/*`
 - Phase 7：标定脚本 + 离线回放 → `tools/*.py`
 - Phase 8：硬件搭建手册 → `docs/hardware/build-guide.md`

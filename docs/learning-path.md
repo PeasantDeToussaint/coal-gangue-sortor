@@ -64,15 +64,15 @@
 ## 第 3 周：通信调试（最难，也最学东西）
 
 ### 目标
-- 拿到 FaDriver-64 协议并打通 1 路喷嘴
+- 用 Beckhoff ADS + EL2828 打通 1 路喷嘴（与 `ValveDriverEL2828` 一致）
 - 拿到相机 SDK 并采到第一帧
 
 ### 任务
-- [ ] 联系 FaDriver-64 供应商索要协议手册（[`Q1`](hardware/protocol-questions.md#q1-anysystem-fadriver-64-串口协议)）
-- [ ] 用 USB-RS232 转换器把板子接到笔记本
-- [ ] 用串口工具发第一条命令，让喷嘴 1 喷气 100 ms
+- [ ] 阅读 [`docs/hardware/protocols/beckhoff-ads.md`](docs/hardware/protocols/beckhoff-ads.md) 与 TwinCAT 侧 GVL 变量约定（如 `MAIN.bValveCh01`）
+- [ ] 确认上位机能 `ping` 通 PLC，ADS 端口（默认 48898）未被防火墙拦截
+- [ ] 用 TwinCAT 或上位机测试写 `bValveCh01`，让喷嘴 1 喷气 100 ms
 - [ ] **关键时刻**：第一次听到喷嘴响——记住这个声音
-- [ ] 实现 `ValveDriverSerial::fire(...)`
+- [ ] 跑通 `ValveDriverEL2828::schedule` / `selfTest`（或先用 PLC 强制置位验证气路）
 - [ ] 接凌云光相机：扫描 QR 码 → 找 SDK → 跑通 `getFrame()`
 - [ ] 把相机和 X 射线探测器的"行同步"问题想清楚（论文第 4 章帮你）
 - [ ] 接 PLC：用 Modbus Poll 工具试探，找出真正的协议
@@ -80,8 +80,8 @@
 
 ### 产出
 - 视频：64 路喷嘴依次喷气
-- `docs/hardware/fadriver-protocol.md` 完整协议笔记
-- 单元测试：`tests/ValveDriverSerialTest.cpp`
+- `docs/hardware/beckhoff-valve-io.md`（或等价笔记）：记录 GVL 符号、ADS NetId、各通道与端子对应关系
+- 单元测试：继续扩展 `tests/` 中与 `PipelineEngine` / Mock 阀驱动相关的用例
 
 ### 第 3 周末检查清单
 - [ ] 我能让任意指定的喷嘴在指定时刻喷指定时长吗？

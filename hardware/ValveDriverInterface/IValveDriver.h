@@ -11,7 +11,8 @@ namespace cgs {
 namespace hardware {
 
 // Single nozzle command: open valve N at absolute time T for D milliseconds.
-// FaDriver-64 supports up to 64 channels with sub-millisecond timing accuracy.
+// Production stack uses Beckhoff EL2828 (up to 64 channels); timing is bounded
+// by EtherCAT / TwinCAT task cycle (typically ~1 ms), matching DF8 valve dynamics.
 struct NozzleCommand {
     int nozzleId = 0;                    // 1..64
     uint64_t fireAtNs = 0;               // absolute steady-clock timestamp
