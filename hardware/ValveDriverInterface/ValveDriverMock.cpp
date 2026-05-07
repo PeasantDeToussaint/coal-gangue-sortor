@@ -3,6 +3,9 @@
 #ifdef CGS_HAS_BECKHOFF_ADS
 #include "ValveDriverEL2828.h"
 #endif
+#ifdef CGS_HAS_BECKOFFLIB
+#include "ValveDriverBeckHoffLib.h"
+#endif
 
 #include <chrono>
 #include <thread>
@@ -84,7 +87,11 @@ void ValveDriverMock::setFaultCallback(FaultCallback cb) { m_fault = std::move(c
 
 std::unique_ptr<IValveDriver> createValveDriver(const std::string& type) {
     if (type == "mock" || type.empty()) return std::make_unique<ValveDriverMock>();
-#ifdef CGS_HAS_BECKHOFF_ADS
+#ifdef CGS_HAS_BECKOFFLIB
+    // BeckHoffLib preferred: uses BeckHoffLib.dll directly (same as Gangue.exe)
+    if (type == "el2828" || type == "beckhoff" || type == "beckofflib")
+        return std::make_unique<ValveDriverBeckHoffLib>();
+#elif defined(CGS_HAS_BECKHOFF_ADS)
     if (type == "el2828" || type == "beckhoff") return std::make_unique<ValveDriverEL2828>();
 #endif
     return nullptr;

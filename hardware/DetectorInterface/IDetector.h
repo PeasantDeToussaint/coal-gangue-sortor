@@ -20,6 +20,7 @@ struct DetectorFrame {
 };
 
 struct DetectorConfig {
+    std::string ipOrSerial{};            // detector IP (e.g. "192.168.1.199") or serial path
     int width = 1024;
     int lineRateHz = 1000;               // 1 kHz typical
     int gain = 0;
@@ -40,6 +41,14 @@ public:
     virtual void setFrameCallback(FrameCallback cb) = 0;
 
     virtual bool isRunning() const = 0;
+
+    // Flat-field calibration.
+    // calibrateDark():   X-ray OFF, acquire offset map  → saves calibrateImageXray.tif
+    // calibrateBright(): X-ray ON, no material, acquire gain map → updates calibration
+    // Returns false if not connected or calibration fails.
+    // Default implementation returns false (unsupported); override in real adapters.
+    virtual bool calibrateDark()   { return false; }
+    virtual bool calibrateBright() { return false; }
 };
 
 std::unique_ptr<IDetector> createDetector(const std::string& type);

@@ -3,6 +3,12 @@
 #ifdef CGS_HAS_BECKHOFF_ADS
 #include "PLCBeckhoff.h"
 #endif
+#ifdef CGS_HAS_PLCCONTROLLIB
+#include "PLCControlLibAdapter.h"
+#endif
+#ifdef CGS_HAS_SNAP7
+#include "PLCS7.h"
+#endif
 
 #include <chrono>
 
@@ -90,6 +96,13 @@ void PLCMock::run() {
 
 std::unique_ptr<IPLC> createPLC(const std::string& type) {
     if (type == "mock" || type.empty()) return std::make_unique<PLCMock>();
+#ifdef CGS_HAS_PLCCONTROLLIB
+    // PLCControlLibAdapter preferred: uses PLCControlLib.dll (same as Gangue.exe)
+    if (type == "s7-1500" || type == "s7" || type == "plccontrollib")
+        return std::make_unique<PLCControlLibAdapter>();
+#elif defined(CGS_HAS_SNAP7)
+    if (type == "s7-1500" || type == "s7") return std::make_unique<PLCS7>();
+#endif
 #ifdef CGS_HAS_BECKHOFF_ADS
     if (type == "beckhoff" || type == "ads") return std::make_unique<PLCBeckhoff>();
 #endif

@@ -29,7 +29,6 @@ bool XRaySerial::open(const std::string& configPath) {
     if (portName.empty()) return false;
 
     cgs::core::SerialConfig cfg;
-    cfg.port = portName;
     cfg.baud = 9600;
     cfg.dataBits = 8;
     cfg.parity = cgs::core::Parity::None;
@@ -37,7 +36,22 @@ bool XRaySerial::open(const std::string& configPath) {
     cfg.readTimeoutMs = 200;
     cfg.writeTimeoutMs = 1000;
 
-    if (!m_port.open(cfg)) return false;
+    // Matches XRayLib real behavior (from gangue_sys.log):
+    //   "init portName: COM5"  → tries specified port
+    //   "portName: COM1"/"COM2"/"COM3"/"COM4"/"COM5"  → enumerates fallback ports
+    //   "open failed!" if none succeed
+    cfg.port = portName;
+    bool opened = m_port.open(cfg);
+    if (!opened) {
+        // Auto-enumerate COM1-COM5 as fallback (matches log pattern)
+        static const char* fallbacks[] = {"COM1","COM2","COM3","COM4","COM5",nullptr};
+        for (int i = 0; fallbacks[i] && !opened; ++i) {
+            if (portName == fallbacks[i]) continue;  // already tried
+            cfg.port = fallbacks[i];
+            opened = m_port.open(cfg);
+        }
+    }
+    if (!opened) return false;
     m_open = true;
 
     setWatchDog(false);   // matches legacy XRayLib::slotXRay_connect
@@ -79,10 +93,12 @@ bool XRaySerial::setKv(double kv) {
 
 bool XRaySerial::setMa(double ma) {
     // VJ accepts μA; our public IXRaySource API talks mA for cleanliness.
+    // Confirmed from XRayLib.dll.c: setCurrent sends 5-digit zero-padded µA value.
+    // XRayLib: arg(mA_in_uA, width=5, fill='0') → e.g. 2.3 mA → "02300"
     const double ua = ma * 1000.0;
-    if (ua < 0 || ua > 9999) return false;
+    if (ua < 0 || ua > 99999) return false;
     m_uaSet = ua;
-    return sendCommand("CP" + formatNumber(ua, 4));
+    return sendCommand("CP" + formatNumber(ua, 5));  // 5-digit confirmed from decompilation
 }
 
 bool XRaySerial::setWatchDog(bool enabled) {
@@ -149,7 +165,8 @@ void XRaySerial::monitorLoop() {
             const std::string resp = readResponseLine(500);
             if (resp.size() >= 19 && resp.front() == STX && resp.back() == CR) {
                 XRayFault f;
-                auto bit = [&](size_t pos){ return pos < resp.size() && resp[pos] == '1'; };
+                // Confirmed from XRayLib.dll.c: fault active when char != '0' (not just == '1')
+                auto bit = [&](size_t pos){ return pos < resp.size() && resp[pos] != '0'; };
                 f.regulation         = bit(1);
                 f.interlockOpen      = bit(3);
                 f.overVoltageCathode = bit(5);
@@ -165,14 +182,28 @@ void XRaySerial::monitorLoop() {
         }
 
         // 2) Monitor kV / uA / T
+        // Response format confirmed from XRayLib.dll.c slotStateInfo:
+        //   Scan for STX (0x02) position p, then:
+        //   p+1..p+4  (4 chars) → kV value
+        //   p+6..p+10 (5 chars) → mA/µA value (int, base 10)
+        //   p+12..p+15 (4 chars) → temperature
         if (sendCommand("MON")) {
             const std::string resp = readResponseLine(500);
-            if (resp.size() >= 16 && resp.front() == STX) {
-                // Format: STX kkkk uuuu tttt CR  (per legacy parser, with decimals at fixed positions)
-                auto digit = [&](size_t i){ return resp.size() > i ? resp[i] : '0'; };
-                char kvStr[8]={digit(1),digit(2),digit(3),'.',digit(4),0,0,0};
-                char uaStr[8]={digit(6),digit(7),digit(8),digit(9),0,0,0,0};
-                char tStr[8] ={digit(11),digit(12),digit(13),'.',digit(14),0,0,0};
+            // Find STX position
+            size_t p = std::string::npos;
+            for (size_t i = 0; i < resp.size(); ++i) {
+                if ((unsigned char)resp[i] == 0x02) { p = i; break; }
+            }
+            if (p != std::string::npos && p + 16 < resp.size()) {
+                auto ch = [&](size_t off) -> char {
+                    return (p + off < resp.size()) ? resp[p + off] : '0';
+                };
+                // kV: 4 chars at p+1..p+4
+                char kvStr[8]={ch(1),ch(2),ch(3),ch(4),0,0,0,0};
+                // µA: 5 chars at p+6..p+10
+                char uaStr[8]={ch(6),ch(7),ch(8),ch(9),ch(10),0,0,0};
+                // Temperature: 4 chars at p+12..p+15
+                char tStr[8] ={ch(12),ch(13),ch(14),ch(15),0,0,0,0};
                 m_kvActual = std::atof(kvStr);
                 m_uaActual = std::atof(uaStr);
                 m_tempC    = std::atof(tStr);

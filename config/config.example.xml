@@ -1,54 +1,248 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Coal-Gangue Sorter configuration template.
-  Copy to `config.xml` (untracked) and edit per machine.
-  All distances mm, time ms, speed m/s. Units are explicit in attribute names
-  to make 现场 calibration unambiguous.
--->
-<config version="1">
+  Coal-Gangue Sorter — machine configuration template.
+  Copy to `config/config.xml` (untracked by git) and edit per machine.
 
-    <!-- ============ Hardware identity ============ -->
+  Units: distances mm, time ms, speed m/s, current mA, voltage kV.
+  Units are explicit in element/attribute names to avoid field confusion.
+
+  Replacing 袁工's config.xml format with one compatible XML schema.
+  Fields map 1-to-1 where possible so existing config.xml files load correctly.
+-->
+<config version="2">
+
+    <!-- ============================================================
+         Hardware identity
+         Change type= to "mock" for offline/development builds.
+         ============================================================ -->
     <hardware>
-        <xray type="mock"   port=""           kv="80"  ma="5"/>
-        <detector type="mock" lineRateHz="1000" width="1024"/>
-        <camera type="mock"  ip="192.168.1.50" width="2048" height="1024"
-                 exposureUs="800" gainDb="6" frameRateHz="30" hardwareTrigger="false"/>
-        <valveDriver type="mock"
-                      port="/dev/cu.usbserial-AB0K1234"
-                      baud="115200"
-                      channels="64"/>
-        <plc type="mock" endpoint="modbus-tcp://192.168.1.10:502"/>
+
+        <!--
+          X-Ray source: Liong Generation Tech (力能时代) LN/LN_V protocol.
+          Set device to LN_V mode (compatible with VJ RS-232 command set).
+          lastCloseTime is written on shutdown; read at startup for preheat calc.
+          Format: YYYYMMDD_HHMMSS
+        -->
+        <!-- type="XRayLib" in real config.xml — maps to XRaySerial (VJ RS-232) in our factory.
+             Also accepted: "vj-serial", "serial".
+             notUseBeifu: 0 = Beifu interlock IS used (real machine), 1 = bypass.
+             beifuNetId: AMS Net ID of the Beifu ADS device on the EtherCAT bus. -->
+        <xray
+            type="XRayLib"
+            port="serial://COM1"
+            kv="200"
+            ma="2.3"
+            lastCloseTime=""
+            notUseBeifu="0"
+            beifuNetId="2.192.168.0.102.1.1"
+        />
+
+        <!--
+          Detector: Detection Technology (DT) Aurora line-scan detector.
+          IP: 192.168.1.199  (subnet 192.168.1.x — separate NIC required)
+          lineCount: scan lines accumulated into one 2D inference frame (LineNumber)
+          intTimeUs: integration time in microseconds (intTime in original = 540)
+          pixelSizeMm: physical pixel pitch (PixUnit = 1.2295 mm)
+        -->
+        <detector
+            type="aurora"
+            ip="192.168.1.199"
+            width="2180"
+            lineCount="1150"
+            intTimeUs="540"
+            lineRateHz="1000"
+            pixelSizeMm="1.2295"
+            enableLineTrigger="false"
+            offsetGainModelPath="config/calibrateImageXray.tif"
+            <!-- calibrateImageXray.tif copied from Gangue/config/calibrateImageXray.tif on production machine -->
+        />
+
+        <!--
+          Camera: Hikvision line-scan (Linea C4096-7um or compatible).
+          GigE Vision / GenICam. Load hardware config from .ccf file.
+          triggerMode: 0=internal, 1=external (para0_0_4)
+          pixelSizeMm: PixUnitCamera = 1.5 mm
+        -->
+        <camera
+            type="mock"
+            ip="192.168.1.200"
+            ccfPath="config/T_Linea_C4096-7um_Internal.ccf"
+            width="4096"
+            height="1"
+            hardwareTrigger="false"
+            frameRateHz="1000"
+            exposureUs="800"
+            gainDb="6"
+        />
+
+        <!--
+          Air-nozzle valve bar: Beckhoff EL2828 EtherCAT digital outputs.
+          endpoint: ads://<routerIp>:<AmsNetId>:<port>?ig=<indexGroup>&io=<indexOffset>&ch=<channels>
+          Replace NETID with the Beckhoff AMS Net ID shown in TwinCAT System Manager.
+          indexGroup / indexOffset: from config.xml in original (0x3040030 / 0x81000006).
+          channels: QNum = 136 on the Xianyuan machine.
+        -->
+        <valveDriver
+            type="el2828"
+            endpoint="ads://192.168.0.1:2.192.168.0.102.1.1:851?ig=0x3040030&amp;io=0x81000006&amp;ch=136"
+        />
+
+        <!--
+          Belt PLC: Siemens S7-1500 at 192.168.2.100.
+          Protocol: S7comm over TCP port 102 (rack 0, slot 1 for S7-1500).
+          Belt speed read from configurable DB/M address (set in plc section below).
+        -->
+        <plc
+            type="s7-1500"
+            endpoint="s7://192.168.2.100:102"
+        />
+
+        <!--
+          ACS motion controller (TCP). Confirmed used on this machine.
+          Type="TCP" in real config.xml. ACSMotionClient connects on port 7070.
+          OpenClaw software confirmed on production PC desktop.
+        -->
+        <acs ip="10.0.0.100" port="7070"/>
+
     </hardware>
 
-    <!-- ============ Geometry (must be field-calibrated) ============ -->
+    <!-- ============================================================
+         Geometry — must be field-calibrated per machine installation.
+         Key values from Xianyuan machine config.xml:
+           DQ=2498mm, SOD=875.5mm, SDD=1003mm, QStart=11, QEnd=1066
+         NOTE: Fire timing uses TimerGap (in <timing> section), not DQ/Speed.
+               DQ here is for reference / nozzle position calculation only.
+         ============================================================ -->
     <geometry>
-        <beltWidthMm>1000</beltWidthMm>
-        <sensorToNozzleMm>860</sensorToNozzleMm>
-        <nozzleSpacingMm>30</nozzleSpacingMm>
-        <nozzleCount>64</nozzleCount>
+        <!-- DQ: detector face to air-nozzle centre (mm). Original: DQ="2498" -->
+        <sensorToNozzleMm>2498</sensorToNozzleMm>
+        <!-- SOD: X-ray source to belt surface (mm). para0_4 = 875.5 -->
+        <sodMm>875.5</sodMm>
+        <!-- SDD: X-ray source to detector face (mm). para0_5 = 1003 -->
+        <sddMm>1003</sddMm>
+
+        <!-- Nozzle channel count. QNum = 136 on Xianyuan machine. -->
+        <nozzleCount>136</nozzleCount>
         <firstNozzleId>1</firstNozzleId>
-        <pixelsPerNozzle>16</pixelsPerNozzle>
-        <beltLeftPaddingPx>0</beltLeftPaddingPx>
-        <beltRightPaddingPx>0</beltRightPaddingPx>
+
+        <!-- Active pixel range: QStart=11, QEnd=1066 -->
+        <beltLeftPaddingPx>11</beltLeftPaddingPx>
+        <!-- qEnd triggers automatic rightPadding = detectorWidth - qEnd -->
+        <qEnd>1066</qEnd>
+        <!-- pixelsPerNozzle = (QEnd-QStart)/QNum = 1055/136 ≈ 7.757 -->
+        <pixelsPerNozzle>7.757</pixelsPerNozzle>
+
+        <!-- Physical nozzle pitch on the bar (mm). para0_6 -->
+        <nozzleSpacingMm>7.5</nozzleSpacingMm>
+        <beltWidthMm>1000</beltWidthMm>
+
+        <!-- Camera-to-detector pixel mapping (XCCR polynomial, 6 coefficients high-to-low).
+             f(x) = c[0]*x^5 + c[1]*x^4 + c[2]*x^3 + c[3]*x^2 + c[4]*x + c[5]
+             From Gangue/config/config.xml on the production machine (Jan 2026 backup):
+               XCCR="0.000000000000347,-0.000000000868959,0.000000453156321,
+                      0.000204545133179,1.208778610052339,-0.337909834130844"
+             Dominant term: c[4] ≈ 1.208 (near-linear magnification between camera and detector).
+             Parser also accepts 5 coefficients (pads c[0]=0). -->
+        <xccr>0.000000000000347,-0.000000000868959,0.000000453156321,0.000204545133179,1.208778610052339,-0.337909834130844</xccr>
+
+        <!-- Camera-to-belt pixel scale and magnification -->
+        <cameraPixelSizeMm>1.5</cameraPixelSizeMm>
+        <!-- DQ_Camera: camera view-point to nozzle bar (mm). Original: DQ_Camera="2330" -->
+        <cameraToNozzleMm>2330</cameraToNozzleMm>
     </geometry>
 
-    <!-- ============ Belt drive (variable frequency) ============ -->
+    <!-- ============================================================
+         Machine orientation and device-type flags
+         Maps to original para0_0_x parameters.
+         ============================================================ -->
+    <machineConfig>
+        <!-- orientation: horizontal (卧式, para0_0_1=0) or vertical (立式, para0_0_1=1) -->
+        <orientation>horizontal</orientation>
+        <!-- sensorMode: xrayOnly | cameraOnly | xrayAndCamera (para0_0_2) -->
+        <sensorMode>xrayOnly</sensorMode>
+        <!-- triggerMode: internal | external (para0_0_4) -->
+        <triggerMode>internal</triggerMode>
+        <!-- useSimulatedData: for offline dev (para0_0_3) -->
+        <useSimulatedData>false</useSimulatedData>
+        <!-- Vertical machine only: material-exit to nozzle distance (mm). DQ_vertical=1278 -->
+        <verticalDqMm>1278</verticalDqMm>
+    </machineConfig>
+
+    <!-- ============================================================
+         Belt drive (VFD — Siemens G120)
+         Belt speed is read from S7-1500 PLC at runtime.
+         Values here are commissioning defaults only.
+         ============================================================ -->
     <belt>
-        <nominalSpeedMps>2.0</nominalSpeedMps>
+        <!-- Nominal belt speed at commissioning. Speed="2035" mm/s in original. -->
+        <nominalSpeedMps>2.035</nominalSpeedMps>
         <minSpeedMps>0.5</minSpeedMps>
         <maxSpeedMps>3.5</maxSpeedMps>
+        <!-- VFD frequency at nominal speed. Used for speed fallback calculation. -->
         <vfdHzAtNominal>50</vfdHzAtNominal>
+        <!-- PLC variable address for belt speed feedback (snap7 DB read spec) -->
+        <plcSpeedVarDb>0</plcSpeedVarDb>
+        <plcSpeedVarOffset>0</plcSpeedVarOffset>
     </belt>
 
-    <!-- ============ Timing (DF8 valve characterised on the bench) ============ -->
+    <!-- ============================================================
+         Timing (solenoid valve characterisation on-bench)
+         timerGapMs: pre-calibrated fire delay in ms — set during commissioning
+           using the disk experiment (圆盘试验). When > 0, this is used directly
+           as the fire delay, matching the original Gangue.exe behaviour.
+           Confirmed from Qt_OpenCV_Image_Processing.dll decompilation:
+           the original does NOT compute delay dynamically from DQ/speed.
+         Original config.xml TimerGap="2456" at Speed=2035mm/s, DQ=2498mm.
+         ============================================================ -->
     <timing>
+        <!-- TimerGap from real config.xml: 2456 ms at nominal belt speed -->
+        <timerGapMs>2456</timerGapMs>
+        <sensorToNozzleMm>2498</sensorToNozzleMm>
         <valveOpenLatencyMs>8</valveOpenLatencyMs>
         <valveCloseLatencyMs>6</valveCloseLatencyMs>
         <pneumaticTravelMs>2</pneumaticTravelMs>
         <safetyMarginMs>1</safetyMarginMs>
     </timing>
 
-    <!-- ============ Classifier thresholds ============ -->
+    <!-- ============================================================
+         AI Inference engine
+         Supports ONNX Runtime (dev) and TensorRT (production Windows/NVIDIA).
+         trtPath: path to .trt engine file (built by trtexec on this machine's GPU).
+         onnxPath: path to .onnx model (cross-platform, used if .trt absent or on non-Windows).
+         imageSize: neural net input dimension (Image_size=1280 in original).
+         ============================================================ -->
+    <inference>
+        <!-- D:\best_Xray.trt on the production machine (updated frequently, see D:\ listing) -->
+        <trtPath>D:\best_Xray.trt</trtPath>
+        <onnxPath>best_seg.onnx</onnxPath>
+        <!-- Image_size=640 in real config.xml — YOLOv8 640×640 input. NOT 1280. -->
+        <imageSize>640</imageSize>
+        <!-- IOU NMS threshold. Original: IOU="0.1" -->
+        <iouThreshold>0.1</iouThreshold>
+        <!-- Minimum detection confidence. Original: Scores="0.1" -->
+        <scoreThreshold>0.1</scoreThreshold>
+        <!-- Number of model output classes. Original: DP_class_num="3" -->
+        <classCount>3</classCount>
+        <!-- Which class indices trigger ejection (1=eject, 0=pass).
+             Original: Classes="1,0,0" → class 0 triggers ejection. -->
+        <classEjectMask>1,0,0</classEjectMask>
+        <!-- Minimum particle width to process (pixels). Original: para1_4 -->
+        <minDetectionWidthPx>5</minDetectionWidthPx>
+        <!-- Air blast duration scaling by object size.
+             para0_1=100 means 100% of calculated time.
+             Values < 100 shorten the burst; > 100 lengthens it. -->
+        <burstScalePercent>100</burstScalePercent>
+        <burstScaleSmallPercent>100</burstScaleSmallPercent>
+        <burstScaleLargePercent>100</burstScaleLargePercent>
+        <!-- Object size classification thresholds (mm along belt). para0_1_5 / para0_1_6 -->
+        <smallObjectLenMm>40</smallObjectLenMm>
+        <largeObjectLenMm>120</largeObjectLenMm>
+    </inference>
+
+    <!-- ============================================================
+         Classifier thresholds (legacy / fallback — used when no model loaded)
+         These are the hand-tuned values from the original software.
+         ============================================================ -->
     <classifier>
         <xrayEmptyMin>50000</xrayEmptyMin>
         <xrayCoalMin>25000</xrayCoalMin>
@@ -58,17 +252,56 @@
         <minObjectWidthPx>5</minObjectWidthPx>
     </classifier>
 
-    <!-- ============ Fusion strategy ============ -->
+    <!-- ============================================================
+         Fusion strategy (X-ray + camera)
+         XRayAuthoritative is the default; camera is a tie-breaker.
+         ============================================================ -->
     <fusion>
         <!-- one of: XRayOnly | CameraOnly | AndReject | OrReject | XRayAuthoritative -->
-        <mode>XRayAuthoritative</mode>
+        <mode>XRayOnly</mode>
     </fusion>
 
-    <!-- ============ Logging / recording ============ -->
+    <!-- ============================================================
+         Data recording and logging
+         recordPath: parent directory for date-based frame subdirectories.
+         logPath: rotating log file (original: gangue_sys.log).
+         mustSave: 0=save on detection only, 1=save all frames (debug).
+         ============================================================ -->
     <logging>
-        <recordRawFrames>false</recordRawFrames>
-        <recordPath>./recordings</recordPath>
-        <logLevel>info</logLevel>
+        <recordPath>data</recordPath>
+        <logPath>data/gangue_sys.log</logPath>
+        <logLevel>debug</logLevel>
+        <!-- MustSave=0 in original. Set to true for data collection. -->
+        <mustSave>false</mustSave>
+        <!-- Maximum log file size before rotation (bytes) -->
+        <logMaxSizeBytes>52428800</logMaxSizeBytes>
     </logging>
+
+    <!-- ============================================================
+         S7 PLC variable mapping (snap7 DB read specification)
+         DB15 confirmed from PLCState panel in real Gangue.exe.
+         Item numbers in PLCState panel correspond to byte offsets in DB15.
+         All bools: bit 0 of the byte at the listed offset.
+         Belt speed: REAL (4-byte float, big-endian) at byte 146.
+         ============================================================
+         DB15_87-89:   87=自动状态, 88=手动状态, 89=急停状态
+         DB15_101-106: 101=X射线电源运行状态, 102=射线反馈信号运行状态,
+                       103=探测器电源状态, 104=安全门限位1,
+                       105=安全门限位2, 106=安全门限位3
+         DB15_137-150: 137-140=轴承温度, 141=防尘箱温度, 142=防爆压力,
+                       143=A低浓度, 144=B低浓度, 145=压差计,
+                       146=皮带速度(REAL), 147-148=轴承翻轮, 149=X对时, 150=总动库
+         NOTE: byte offsets must be confirmed against actual S7 DB15 structure.
+         ============================================================ -->
+    <plc>
+        <beltSpeedDb>15</beltSpeedDb>
+        <beltSpeedOffset>146</beltSpeedOffset>
+        <emergencyStopDb>15</emergencyStopDb>
+        <emergencyStopOffset>89</emergencyStopOffset>
+        <airPressureOkDb>15</airPressureOkDb>
+        <airPressureOkOffset>142</airPressureOkOffset>
+        <xrayInterlockDb>15</xrayInterlockDb>
+        <xrayInterlockOffset>101</xrayInterlockOffset>
+    </plc>
 
 </config>

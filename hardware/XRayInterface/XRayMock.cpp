@@ -3,6 +3,9 @@
 #ifdef CGS_HAS_SERIAL
 #include "XRaySerial.h"
 #endif
+#ifdef CGS_HAS_XRAYLIB
+#include "XRayLibAdapter.h"
+#endif
 
 namespace cgs {
 namespace hardware {
@@ -50,8 +53,15 @@ void XRayMock::setStatusCallback(StatusCallback cb) { m_cb = std::move(cb); }
 
 std::unique_ptr<IXRaySource> createXRaySource(const std::string& type) {
     if (type == "mock" || type.empty()) return std::make_unique<XRayMock>();
+#ifdef CGS_HAS_XRAYLIB
+    // XRayLibAdapter preferred: uses XRayLib.dll directly (same DLL as original Gangue.exe)
+    if (type == "XRayLib" || type == "xraylib")
+        return std::make_unique<cgs::hardware::XRayLibAdapter>();
+#endif
 #ifdef CGS_HAS_SERIAL
-    if (type == "vj-serial" || type == "serial") return std::make_unique<XRaySerial>();
+    // XRaySerial fallback: reimplementation of the same VJ RS-232 protocol
+    if (type == "vj-serial" || type == "serial" || type == "XRayLib")
+        return std::make_unique<XRaySerial>();
 #endif
     return nullptr;
 }

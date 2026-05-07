@@ -11,18 +11,18 @@ namespace cgs {
 namespace hardware {
 
 // Single nozzle command: open valve N at absolute time T for D milliseconds.
-// Production stack uses Beckhoff EL2828 (up to 64 channels); timing is bounded
-// by EtherCAT / TwinCAT task cycle (typically ~1 ms), matching DF8 valve dynamics.
+// Production stack uses Beckhoff EL2828 via EtherCAT ADS; timing bounded by
+// EtherCAT cycle (~1 ms). Real machine: 136 channels (QNum=136).
 struct NozzleCommand {
-    int nozzleId = 0;                    // 1..64
-    uint64_t fireAtNs = 0;               // absolute steady-clock timestamp
+    int nozzleId = 0;                    // 1..N (N = channelCount, typically 136)
+    uint64_t fireAtNs = 0;               // absolute steady-clock timestamp (nanoseconds)
     uint32_t durationMs = 30;
 };
 
 struct ValveDriverStatus {
     bool connected = false;
     bool armed = false;
-    int channelCount = 64;
+    int channelCount = 136;              // real machine: 136 (QNum=136)
     uint64_t commandsAccepted = 0;
     uint64_t commandsRejected = 0;
     std::string lastError;

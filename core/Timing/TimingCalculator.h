@@ -8,10 +8,20 @@ namespace core {
 
 // All distances in millimetres, time in milliseconds, speed in metres/sec.
 struct TimingConfig {
-    double sensorToNozzleMm = 860.0;     // physical distance, X-ray detector centre to nozzle centre
-    double valveOpenLatencyMs = 8.0;     // DF8 typical open response
-    double valveCloseLatencyMs = 6.0;    // DF8 typical close response
-    double pneumaticTravelMs = 2.0;      // air-burst time-of-flight from nozzle to belt level
+    // DQ: detector face to air-nozzle centre, mm.
+    // Real machine: 2498 mm (from config.xml DQ="2498").
+    double sensorToNozzleMm = 2498.0;
+
+    // TimerGap: pre-calibrated fire delay in ms (TimerGap="2456" in real config.xml).
+    // Confirmed from Qt_OpenCV_Image_Processing.dll decompilation: the original software
+    // does NOT compute delay dynamically from DQ/speed. It uses a fixed TimerGap value
+    // set during commissioning (disk experiment). When > 0, this overrides the
+    // dynamic DQ/speed formula.
+    double timerGapMs = 2456.0;
+
+    double valveOpenLatencyMs = 8.0;     // EL2828 + solenoid open response
+    double valveCloseLatencyMs = 6.0;    // EL2828 + solenoid close response
+    double pneumaticTravelMs = 2.0;      // air-burst time-of-flight to belt
     double safetyMarginMs = 1.0;
 };
 

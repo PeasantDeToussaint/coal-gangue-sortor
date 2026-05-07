@@ -3,6 +3,9 @@
 #ifdef CGS_HAS_AURORA_SDK
 #include "DetectorAurora.h"
 #endif
+#ifdef CGS_HAS_DETECTORLIB
+#include "DetectorDetectorLib.h"
+#endif
 
 #include <chrono>
 #include <random>
@@ -77,7 +80,11 @@ void DetectorMock::run() {
 
 std::unique_ptr<IDetector> createDetector(const std::string& type) {
     if (type == "mock" || type.empty()) return std::make_unique<DetectorMock>();
-#ifdef CGS_HAS_AURORA_SDK
+#ifdef CGS_HAS_DETECTORLIB
+    // "detectorlib" = 袁工's DetectorLib.dll wrapper (preferred on production machine).
+    if (type == "detectorlib" || type == "aurora")
+        return std::make_unique<DetectorDetectorLib>();
+#elif defined(CGS_HAS_AURORA_SDK)
     if (type == "aurora") return std::make_unique<DetectorAurora>();
 #endif
     return nullptr;

@@ -32,8 +32,11 @@ struct CameraConfig {
     int height = 1024;
     double exposureUs = 1000.0;
     double gainDb = 0.0;
-    bool hardwareTrigger = false;
+    bool hardwareTrigger = false;        // true = external trigger (para0_0_4=1)
     int frameRateHz = 30;
+    // Optional: Hikvision .ccf device feature file (from MVS software).
+    // If non-empty, CameraHikGigE::open() calls MV_CC_FeatureLoad() with this path.
+    std::string ccfPath;
 };
 
 class ICamera {

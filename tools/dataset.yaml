@@ -1,0 +1,36 @@
+# dataset.yaml — YOLOv8 dataset config for X-ray gangue sorting
+#
+# Class structure confirmed from config.xml:
+#   DP_class_num="3"       → 3 classes
+#   Classes="1,0,0"        → class index 0 triggers ejection (gangue)
+#   ClassesAlter="0,1,2,3" → backup config had 4-class version
+#   Tonstein="0"           → Tonstein (black shale) is a separate class in some configs
+#
+# Naming convention inferred from model files:
+#   best_Xray3.15生煤.trt  → "生煤" variant trained on raw/unprocessed coal
+#   best_Xray何家塔1280.trt → site-specific + 1280px input size
+#   best_Xray矸石不行.trt   → "gangue failing" → experimental/failed model
+#
+# Self-supervised labeling from IO_Mat:
+#   When MustSave=1, machine saves frameN_raw.tif + frameN_IO_Mat.pgm
+#   IO_Mat shows which pixel columns fired → pseudo-labels for gangue
+#   Review with labelImg, correct mistakes, retrain
+
+path: D:/data/xray_dataset
+train: images/train
+val:   images/val
+test:  images/test   # optional
+
+nc: 3
+names:
+  0: gangue          # 矸石 — eject (Classes="1,0,0" → index 0 triggers ejection)
+  1: coal            # 煤 — pass
+  2: mixed           # 混合/夹矸 — uncertain, may eject depending on config ClassesAlter
+
+# For 4-class variant (seen in backup config DP_class_num=4, ClassesAlter="0,1,2,3"):
+# nc: 4
+# names:
+#   0: gangue
+#   1: coal
+#   2: mixed
+#   3: tonstein      # 夹矸页岩 (Tonstein = black shale interbedded with coal)

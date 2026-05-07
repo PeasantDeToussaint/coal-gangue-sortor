@@ -1,12 +1,22 @@
 #ifndef CGS_PIPELINEENGINE_H
 #define CGS_PIPELINEENGINE_H
 
-// Pure C++ orchestrator: detector frame → classify → map nozzles → schedule fires.
-// No Qt or hardware-vendor SDK dependency, so it can be unit-tested and reused
-// by both the console app and the Qt GUI.
+// Main orchestrator: detector scan line → frame accumulation → AI inference
+// → nozzle mapping → timed valve fire.
+//
+// No Qt or hardware-vendor SDK dependency; can be unit-tested and reused by
+// both the console app and the Qt GUI.
+//
+// Processing loop (per DetectorFrame callback — ~2 Hz at 1150 lines/frame):
+//   1. Push scan line into FrameAccumulator
+//   2. When LineNumber lines collected → run IInferenceEngine::infer()
+//   3. For each gangue detection → NozzleMapper → TimingCalculator → schedule
+//   4. Emit PipelineFrameSnapshot for GUI / recording
 
 #include "../Classifier/Classifier.h"
 #include "../Fusion/FusionPolicy.h"
+#include "../Inference/FrameAccumulator.h"
+#include "../Inference/IInferenceEngine.h"
 #include "../NozzleMapping/NozzleMapper.h"
 #include "../Timing/TimingCalculator.h"
 
@@ -26,29 +36,35 @@ namespace cgs {
 namespace core {
 
 struct PipelineConfig {
-    ClassifierConfig classifier;
-    FusionConfig fusion;
-    NozzleGeometry nozzles;
-    TimingConfig timing;
+    ClassifierConfig  classifier;   // fallback if no inference engine loaded
+    FusionConfig      fusion;
+    NozzleGeometry    nozzles;
+    TimingConfig      timing;
+    InferenceConfig   inference;
+    int               lineCount{1150};   // LineNumber: scan lines per 2D frame
+    double            defaultBeltSpeedMps{2.035};  // used when PLC absent
 };
 
 struct PipelineStats {
-    uint64_t framesProcessed = 0;
-    uint64_t segmentsDetected = 0;
-    uint64_t gangueRejected = 0;
-    uint64_t commandsScheduled = 0;
-    uint64_t commandsRejected = 0;
-    double currentBeltSpeedMps = 0.0;
+    uint64_t framesProcessed    = 0;
+    uint64_t segmentsDetected   = 0;
+    uint64_t gangueRejected     = 0;
+    uint64_t commandsScheduled  = 0;
+    uint64_t commandsRejected   = 0;
+    double   currentBeltSpeedMps = 0.0;
+    double   lastInferenceMs     = 0.0;  // wall-clock inference time for last frame
 };
 
-// Live snapshot of a single detector frame's classification result, used by
-// the GUI to draw the waterfall plot and the active-nozzles overlay.
+// Live snapshot of one complete 2D frame, forwarded to the GUI.
 struct PipelineFrameSnapshot {
-    uint64_t frameId = 0;
-    int width = 0;
-    std::vector<uint16_t> rawRow;          // copy of the X-ray row
-    std::vector<ClassifiedSegment> segments;
-    std::vector<int> firedNozzleIds;
+    uint64_t frameId   = 0;
+    int      width     = 0;
+    int      height    = 0;
+    // Downsampled preview row (middle row of the 2D frame, for waterfall view)
+    std::vector<uint16_t> previewRow;
+    std::vector<InferenceResult::Detection> detections;
+    std::vector<int>      firedNozzleIds;
+    double   inferenceMs = 0.0;
 };
 
 class PipelineEngine {
@@ -59,21 +75,18 @@ public:
     void setConfig(const PipelineConfig& cfg);
     PipelineConfig config() const;
 
-    // Wire the engine to concrete hardware. Engine does NOT take ownership;
-    // caller manages lifetime.
-    void attach(hardware::IDetector* detector,
-                hardware::ICamera* camera,
+    // Attach hardware. Engine does NOT take ownership; caller manages lifetime.
+    void attach(hardware::IDetector*    detector,
+                hardware::ICamera*      camera,
                 hardware::IValveDriver* valves,
-                hardware::IPLC* plc,
-                hardware::IXRaySource* xray);
+                hardware::IPLC*         plc,
+                hardware::IXRaySource*  xray);
 
-    // Subscribe to live stream for UI / logging.
+    // Subscribe to per-frame snapshots (called on the detector callback thread).
     using SnapshotCallback = std::function<void(const PipelineFrameSnapshot&)>;
     void setSnapshotCallback(SnapshotCallback cb);
 
-    // Engine is event-driven; just call start()/stop() on the hardware
-    // mocks/real impls. This method only flips an internal "armed" flag that
-    // determines whether classification results actually trigger fires.
+    // Arm/disarm: when armed, detections trigger valve fires.
     void arm();
     void disarm();
     bool isArmed() const { return m_armed; }
@@ -81,31 +94,39 @@ public:
     PipelineStats stats() const;
     void resetStats();
 
-    // Hand a detector frame in directly (used by tests and replay tools).
+    // Direct frame injection (tests, replay tool, TestOffline).
     void processFrame(const hardware::DetectorFrame& f);
 
+    // Replace or clear the inference engine at runtime (e.g. model hot-swap).
+    void setInferenceEngine(std::unique_ptr<IInferenceEngine> engine);
+    IInferenceEngine* inferenceEngine() const { return m_inferenceEngine.get(); }
+
 private:
-    PipelineConfig m_cfg;
+    void processCompleteFrame(uint64_t frameId, uint64_t timestampNs);
+
+    PipelineConfig    m_cfg;
     mutable std::mutex m_cfgMtx;
 
-    Classifier m_classifier;
-    FusionPolicy m_fusion;
-    NozzleMapper m_mapper;
-    TimingCalculator m_timing;
+    FrameAccumulator  m_accumulator;
+    std::unique_ptr<IInferenceEngine> m_inferenceEngine;
+    Classifier        m_classifier;   // fallback
+    FusionPolicy      m_fusion;
+    NozzleMapper      m_mapper;
+    TimingCalculator  m_timing;
 
-    hardware::IDetector* m_detector = nullptr;
-    hardware::ICamera* m_camera = nullptr;
-    hardware::IValveDriver* m_valves = nullptr;
-    hardware::IPLC* m_plc = nullptr;
-    hardware::IXRaySource* m_xray = nullptr;
+    hardware::IDetector*    m_detector = nullptr;
+    hardware::ICamera*      m_camera   = nullptr;
+    hardware::IValveDriver* m_valves   = nullptr;
+    hardware::IPLC*         m_plc      = nullptr;
+    hardware::IXRaySource*  m_xray     = nullptr;
 
-    std::atomic<bool> m_armed{false};
+    std::atomic<bool>     m_armed{false};
 
-    mutable std::mutex m_statsMtx;
-    PipelineStats m_stats;
+    mutable std::mutex    m_statsMtx;
+    PipelineStats         m_stats;
 
-    SnapshotCallback m_snapshotCb;
-    std::mutex m_cbMtx;
+    SnapshotCallback      m_snapshotCb;
+    std::mutex            m_cbMtx;
 };
 
 }}

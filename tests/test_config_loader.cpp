@@ -23,10 +23,21 @@ TEST_CASE("parseFusionModeString") {
 TEST_CASE("loadConfigFromFile_example") {
     PipelineConfig p{};
     HardwareConfig h{};
+    // Path is relative to the build/tests directory — adjust if test binary location differs.
     const bool ok = loadConfigFromFile("../../config/config.example.xml", p, h);
     EXPECT_TRUE(ok);
-    EXPECT_EQ(h.xrayType, "mock");
-    EXPECT_EQ(h.detectorWidth, 1024);
-    EXPECT_NEAR(p.nozzles.pixelsPerNozzle, 16.0, 1e-6);
-    EXPECT_EQ(p.fusion.mode, FusionMode::XRayAuthoritative);
+    // Production example config uses real hardware type, not mock.
+    EXPECT_EQ(h.xrayType, "vj-serial");
+    EXPECT_EQ(h.xrayKv, 200.0);
+    // Detector: 2180 pixels wide (DNum=17 modules)
+    EXPECT_EQ(h.detectorWidth, 2180);
+    EXPECT_EQ(h.detectorLineCount, 1150);
+    // Nozzle geometry: QNum=136, QStart=11, pixelsPerNozzle=(1066-11)/136≈7.757
+    EXPECT_EQ(p.nozzles.totalNozzles, 136);
+    EXPECT_EQ(p.nozzles.beltLeftPaddingPx, 11);
+    EXPECT_NEAR(p.nozzles.pixelsPerNozzle, 7.757, 0.01);
+    // DQ timing: sensorToNozzleMm=2498mm
+    EXPECT_NEAR(p.timing.sensorToNozzleMm, 2498.0, 0.1);
+    // Fusion: XRayOnly (single sensor, no camera fusion by default)
+    EXPECT_EQ(p.fusion.mode, FusionMode::XRayOnly);
 }

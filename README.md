@@ -1,50 +1,65 @@
-# 煤矸石智能分选机上位机软件
+# 煤矸石 X 射线智能分选机上位机软件
 
-基于 **X 射线线阵探测器 + 工业相机**双传感器的煤矸石分选机工控软件，采用 C++17 编写，支持 Qt 6 图形界面、Beckhoff TwinCAT（PLC + EL2828 喷嘴直驱）等工业硬件，并通过完整 Mock 体系实现无硬件开发与测试。
+**开源替代版** — 基于对原 `Gangue.exe`（袁工作品）完整反向工程而重建。
 
----
-
-## 项目状态
-
-| 阶段 | 状态 | 内容 |
-|------|------|------|
-| Phase 0 | ✅ | 资料盘点 + I/O 点表 + 现场勘查清单 |
-| Phase 1 | ✅ | 仓库骨架 + 5 个抽象接口 + 5 个 Mock 实现 |
-| Phase 2 | ✅ | 核心算法（分类 / 时序 / 喷嘴映射 / 传感器融合）+ 29 个单元测试 |
-| Phase 3 | ✅ | 气枪驱动（Beckhoff EL2828 经 ADS 直驱，TwinCAT GVL BOOL） |
-| Phase 4 | ✅ | X 射线源 RS232 驱动 + Detection Technology Aurora SDK 适配器 |
-| Phase 5 | ✅ | Beckhoff TwinCAT 3 ADS 适配器 + PLC 变量命名约定 |
-| Phase 6 | ✅ | Qt 6 GUI（X 射线瀑布图 + 64 路喷嘴矩阵 + 实时调参面板 + 统计面板） |
-| Phase 7 | ✅ | Python 离线工具（皮带标定 / 时序仿真 / 数据回放 / 喷嘴自检） |
-| Phase 8 | ✅ | 硬件搭建手册 + 现场安全规程 |
-
-**软件层全部完成**；主要机侧协议与驱动已在仓库实现（**VJ X 射线 RS232**、**Aurora 探测器 SDK 适配**、**Beckhoff ADS + EL2828 阀驱动**、**PLCBeckhoff**）。上线前剩余多为**现场项**：几何与皮带速度标定（Q8）、DF8 阀响应实测（Q9）、变频器/寄存器形态确认（Q6）、Aurora 库文件与 ADS 路由部署、工业相机与光源到货后的集成（Q3/Q4）。
+原软件作者及源代码已不可得；本仓库通过对部署包内所有 DLL 符号表、反编译 C 伪代码、TwinCAT 项目文件、配置文件及运行日志的系统分析，精确复现了原有功能，并在架构上予以改进，使其可被 Git 管理、跨机器部署、持续迭代。
 
 ---
 
-## 系统架构
+## 系统概述
+
+### 工作原理
+
+1. X 射线源（200 kV / 2.3 mA）向传送带上的物料发射扇形射线束
+2. 线阵探测器（2180 像素，PixUnit = 1.2295 mm）逐行采集透射强度图像
+3. 每 1150 行拼成一幅 2D 帧（≈2180×1150 像素，16-bit 灰度）
+4. TensorRT YOLOv8-seg 模型对帧做实例分割（矸石 / 煤 / 混合，3 类）
+5. 检测到矸石 → 通过 Beckhoff ADS 驱动 136 路 EL2828 电磁阀，延迟 TimerGap=2456 ms 后喷气
+6. 矸石被吹离传送带至废料仓；煤继续前进
+
+### 硬件拓扑（现场确认，先瑗矿）
 
 ```
-[光电触发] → [PLC] ──┬──→ [X 射线线阵探测器] ──┐
-                      └──→ [凌云光工业相机]  ────┴──→ [上位机分类引擎]
-                                                            ↓
-                                                [喷嘴映射 + 时序计算]
-                                                            ↓
-                    PC ──[Beckhoff ADS]──▶ [TwinCAT / EL2828] ──▶ [DF8 电磁阀 ×64] ──▶ [气枪喷嘴 ×52]
-                    PLC ──▶ [三色灯 / 变频 / 急停等通用 I/O]
-                                                            ↓
-                                                [矸石被吹离 → 废料皮带]
+X 射线源（COM1, 200kV/2.3mA, VJ/LN RS-232 协议）
+        ↓ 射线
+  传送带（皮带速度由 S7-1500 PLC 反馈, 2035 mm/s 额定）
+        ↓ 透射强度
+线阵探测器（GigE, 192.168.1.199, Camera Link, XLibDll SDK）
+        ↓ signalAcqDataArray(uint16*, width, height, timestamp)
+DetectorLib.dll → DataAcquirer → PipelineEngine
+        ↓ TRT 推理（D:\best_Xray.trt, 640×640 YOLOv8-seg）
+BeckHoffLib.dll → TcAdsDll.DLL → Beckhoff EtherCAT
+        ↓ AdsSyncWriteReq(0x3040030, 0x81000006, 136 bytes)
+136 路 EL2828 电磁阀（20 个 EL2828 模块，EtherCAT 光纤总线）
+        ↓
+气枪喷嘴 → 矸石被吹至废料仓
+
+辅助：
+  Beifu 控制器（AMS NetID: 2.192.168.0.102.1.1, 0x81000000, 154路光机联锁）
+  S7-1500 PLC（192.168.2.100:102, DB15, 皮带速度/急停/安全门）
+  ACS 运动控制器（10.0.0.100:7070, 皮带启停）
+  Hikvision 线阵相机（可选融合，当前 para0_0_2=0 已禁用）
 ```
 
-### 运行时数据流
+---
 
-1. **探测器帧** — `IDetector` 回调交付 16-bit 线扫原始行（`DetectorFrame`），携带纳秒时间戳。
-2. **X 射线分类** — `Classifier::classifyXRayRow` 对每行做阈值分割，`segment()` 合并连续像素段，过滤噪声短段，输出 `ClassifiedSegment` 列表（`Empty` / `Coal` / `Gangue` / `Unknown`）。
-3. **传感器融合** — `FusionPolicy::combine(xray, camera)` 按选定的融合模式合并双路结论（当前主循环 X 射线单轨，相机融合接口已就绪）。
-4. **喷嘴映射** — `NozzleMapper::nozzlesForRange` 将像素范围映射到对应的喷嘴通道（含两侧扩边）。
-5. **时序计算** — `TimingCalculator` 根据皮带速度、传感器到喷嘴距离、阀门与气动延迟，计算精确的开阀时刻（绝对纳秒时间戳）和持续时长。
-6. **调度执行** — 若系统已 Arm，`IValveDriver::schedule` 接收 `NozzleCommand` 批次并驱动气枪。
-7. **UI 快照** — `PipelineFrameSnapshot` 同步推送到 GUI（瀑布图 + 64 路矩阵实时显示）。
+## 反向工程成果
+
+本项目通过以下手段完整重建了原软件的技术细节：
+
+| 来源 | 获得的关键信息 |
+|---|---|
+| `config.xml` 实测值 | indexGroup=0x3040030, indexOffsetWrite=0x81000006, TimerGap=2456, QNum=136 |
+| `BeckHoff.cpp` 源代码 | Beifu 控制器写地址 = 0x81000000（非 0x81000006）|
+| `TwinCAT Project1.tsproj` | EtherCAT 完整拓扑：154 路输出，20×EL2828，双光纤耦合器 |
+| `DetectorLib.dll.c` 反编译 | 完整 7 步探测器初始化序列；`create("DetectorLib")` 参数确认 |
+| `Qt_OpenCV_Image_Processing.dll.c` 反编译 | TimerGap 为固定值（非动态公式）；`_IO_Output` 为检测几何描述符 |
+| `XRayLib.dll.c` 反编译 | CP 命令为 5 位 µA；MON 响应位置（mA 偏移 6-10，温度 12-15）|
+| `PLCControlLib.dll.c` 反编译 | serialport 参数为型号字符串"S7-1500"；INT16 数组索引 = 字节偏移/2 |
+| `ThreadManager.dll.c` 反编译 | `create("DetectorLib")` 确认；阀门逻辑在 Gangue.exe 主进程，非 DLL |
+| `ValvePlateLib.dll.c` 反编译 | 串口阀板备用方案（UseComValve=1），当前机器未启用 |
+| `gangue_sys.log` 运行日志 | 心跳格式：begin/is not Busy/finish/finishfinish；安装路径 E:\Gangue |
+| `xlog.dat` X 射线通信日志 | VJ RS-232 命令帧格式（STX+命令+CR）|
 
 ---
 
@@ -52,265 +67,238 @@
 
 ```
 coal-gangue-sorter/
-├── core/                   纯 C++17 算法核心（无 Qt 依赖）
-│   ├── Config/             config.xml 解析（tinyxml2）
-│   ├── Classifier/         X 射线 / 相机分类器，像素段合并
-│   ├── Fusion/             双传感器融合策略
-│   ├── NozzleMapping/      像素 → 喷嘴通道映射
-│   ├── Timing/             皮带时序与阀门延迟计算
-│   ├── Pipeline/           PipelineEngine 主循环编排
-│   └── Serial/             POSIX/Win32 串口基础层
-├── hardware/               硬件抽象层
-│   ├── IDetector.*         线阵探测器接口
-│   ├── ICamera.*           工业相机接口
-│   ├── IXRaySource.*       X 射线源接口
-│   ├── IValveDriver.*      气枪阀门驱动接口
-│   ├── IPLC.*              PLC 接口（皮带速度、急停、指示灯）
-│   ├── *Mock.*             五路全功能 Mock 实现
-│   ├── DetectorAurora.*    Detection Technology Aurora SDK 适配（可选）
-│   ├── XRaySerial.*        VJ X 射线源 RS232 驱动（可选）
-│   ├── PLCBeckhoff.*       Beckhoff TwinCAT 3 ADS 适配（可选）
-│   └── ValveDriverEL2828.* Beckhoff EL2828 直驱适配（可选）
+├── core/                       纯 C++17 算法核心
+│   ├── Config/                 config.xml 解析（tinyxml2），支持所有原始字段
+│   ├── Classifier/             X 射线阈值分类器（TRT 推理回退用）
+│   ├── Fusion/                 双传感器融合策略（XRayOnly / CameraOnly / AndReject 等）
+│   ├── Inference/              AI 推理引擎层
+│   │   ├── IInferenceEngine.*  统一接口 + 工厂（TRT 优先，ONNX 回退）
+│   │   ├── FrameAccumulator.*  探测器行扫→2D 帧积累（1150 行→完整帧）
+│   │   ├── OnnxInferenceEngine.*  ONNX Runtime 实现（跨平台开发用）
+│   │   └── TrtInferenceEngine.*   TensorRT 实现（Windows 生产用）
+│   ├── Logging/                spdlog 封装（gangue_sys.log，2 Hz 心跳格式匹配原版）
+│   ├── NozzleMapping/          像素→喷嘴映射（XCCR 多项式，136 路）
+│   ├── Pipeline/               PipelineEngine 主循环
+│   ├── Recording/              帧录制（raw.tif + _IO_Mat.pgm）
+│   └── Timing/                 时序计算（TimerGap 固定值，反编译确认）
+├── hardware/                   硬件抽象层
+│   ├── DetectorInterface/
+│   │   ├── DetectorDetectorLib.*  ★ DetectorLib.dll 适配（首选，7步初始化序列）
+│   │   └── DetectorAurora.*       Aurora SDK 直接适配（备用）
+│   ├── XRayInterface/
+│   │   ├── XRayLibAdapter.*    ★ XRayLib.dll 适配（首选，原版 DLL）
+│   │   ├── XRaySerial.*        VJ RS-232 协议重实现（备用）
+│   │   └── BeiduAdapter.*      Beifu ADS 联锁适配（0x81000000 确认）
+│   ├── ValveDriverInterface/
+│   │   ├── ValveDriverBeckHoffLib.*  ★ BeckHoffLib.dll 适配（首选）
+│   │   └── ValveDriverEL2828.*       开源 AdsLib 直接适配（备用）
+│   ├── PLCInterface/
+│   │   ├── PLCControlLibAdapter.*  ★ PLCControlLib.dll 适配（首选）
+│   │   ├── PLCS7.*                 snap7 直接适配（备用）
+│   │   └── ACSMotionClient.*       ACS TCP 皮带运动控制
+│   └── CameraInterface/
+│       └── CameraHikGigE.*         海康威视 GigE 相机（融合模式备用）
 ├── app/
-│   ├── main_console.cpp    无界面命令行运行器
-│   └── gui/                Qt 6 图形界面
-│       ├── MainWindow.*    主窗口（Arm/Disarm/急停工具栏）
-│       ├── ConfigPanel.*   实时参数调节面板
-│       ├── XRayWaterfallView.*  X 射线瀑布图控件
-│       ├── NozzleMatrixView.*   64 路喷嘴矩阵控件
-│       └── StatsPanel.*    吞吐量 / 误判率统计面板
-├── tests/                  单元测试（自定义 TEST_CASE / EXPECT_* 框架）
-│   ├── test_classifier.cpp
-│   ├── test_nozzle_mapper.cpp
-│   ├── test_timing.cpp
-│   ├── test_fusion.cpp
-│   ├── test_xray_serial_format.cpp
-│   └── test_pipeline_engine.cpp
-├── tools/                  Python 离线工具
-│   ├── calibrate_belt.py   皮带速度标定
-│   ├── timing_simulator.py 时序参数仿真
-│   ├── replay_session.py   历史帧数据回放
-│   └── nozzle_self_test.py 喷嘴通道自检
+│   ├── main_console.cpp        无界面命令行
+│   └── gui/
+│       ├── main_gui.cpp        GUI 入口（含预热流程、Beifu/ACS 初始化）
+│       ├── MainWindow.*        主窗口（菜单动态解析 menu.xml，匹配原版）
+│       ├── PreheatDialog.*     X 射线预热对话框（停机时间→预热时长表）
+│       ├── XRaySettingsDialog.* 光机面板（实时故障指示灯，2Hz 轮询）
+│       ├── DetectorSettingsDialog.* 探测器面板（暗场/亮场/相机校正）
+│       ├── PlcSettingsDialog.*  PLC 面板
+│       ├── LogCenter.*         日志中心（Ctrl+M，spdlog 回调接入）
+│       └── style.qss           ★ 原版 Qt 样式表（从部署包直接提取）
+├── third_party/
+│   ├── detectorlib/            DetectorLib.lib + 重建头文件
+│   ├── xraylib/                XRayLib.lib + 重建头文件
+│   ├── beckofflib/             BeckHoffLib.lib + 重建头文件
+│   ├── plccontrollib/          PLCControlLib.lib + 重建头文件
+│   └── qtopencv/               Qt_OpenCV_Image_Processing.lib + 重建头文件
 ├── config/
-│   └── config.example.xml  配置模板（复制为 config.xml 后现场调参）
-├── docs/                   详细文档
-│   ├── architecture.md     软件分层与设计决策
-│   ├── gui-build.md        Qt 编译与界面说明
-│   ├── learning-path.md    新人 4 周成长路线
-│   └── hardware/           硬件手册（物料 / I/O 点表 / 安全 / 协议）
-└── third_party/
-    └── aurora-sdk/         Detection Technology SDK 占位（库文件不入库）
+│   ├── config.example.xml      配置模板（所有真实现场值已预填）
+│   ├── calibrateImageXray.tif  ★ 探测器暗/亮场校正文件（从部署包提取）
+│   ├── T_Linea_C4096-7um_Internal.ccf  ★ 海康相机配置（内触发，从部署包提取）
+│   └── T_Linea_C4096-7um_External.ccf  ★ 海康相机配置（外触发，从部署包提取）
+├── images/
+│   └── mode/
+│       └── mode.txt            ★ 探测器平场校正模型（2180行，gain/offset对，从部署包提取）
+├── tests/
+│   ├── test_frame.tif          ★ 真实 X 射线帧（从先瑗矿机器部署包提取）
+│   ├── test_gpu_frame.tif      ★ GPU 测速用真实帧
+│   ├── test_pipeline_engine.cpp
+│   └── test_config_loader.cpp
+└── tools/
+    ├── train_xray.py           ★ YOLOv8-seg 训练脚本（重建，640/1280px，3类）
+    ├── collect_training_data.py ★ 从机器 data/ 目录自动生成训练集
+    ├── dataset.yaml            ★ YOLOv8 数据集配置（类别：矸石/煤/混合）
+    ├── seg_thousand.py         批量阈值分割生成标注
+    ├── calibrate_belt.py       皮带速度标定
+    └── nozzle_self_test.py     136 路喷嘴通道自检
 ```
 
 ---
 
-## 快速开始（无硬件 Mock 模式）
+## 快速开始
 
-### 依赖
-
-| 依赖 | 最低版本 | 说明 |
-|------|----------|------|
-| CMake | 3.16 | 构建系统 |
-| C++ 编译器 | GCC 10 / Clang 12 / MSVC 2019 | 需支持 C++17 |
-| Qt | 5.12 或 Qt 6.x | 仅 GUI 目标需要 |
-| Python | 3.10 | 仅离线工具需要 |
-
-### 编译与运行
+### macOS 开发环境（Mock 模式）
 
 ```bash
-# 克隆仓库
-git clone <repo-url>
+brew install cmake git qt@5
 cd coal-gangue-sorter
 
-# 配置（Mock + GUI）
 cmake -B build \
-      -DCGS_BUILD_GUI=ON \
-      -DCGS_BUILD_TESTS=ON \
-      -DCGS_BUILD_CONSOLE=ON
+  -DCGS_BUILD_GUI=ON \
+  -DCGS_BUILD_CONSOLE=ON \
+  -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5)"
+cmake --build build -j$(sysctl -n hw.logicalcpu)
 
-# 编译
-cmake --build build -j$(nproc)
-
-# 准备配置（仓库根目录执行；也可设置环境变量 CGS_CONFIG_PATH 指向任意路径）
-cp config/config.example.xml config/config.xml
-
-# 运行 GUI（默认读取 config/config.xml；无文件时回退内置 Mock 参数）
-./build/app/coal_gangue_sorter_gui
-
-# 运行命令行（运行 10 秒后退出）
-./build/app/coal_gangue_sorter_console --seconds 10
-
-# 指定配置文件
-./build/app/coal_gangue_sorter_console --config /path/to/config.xml
-
-# 执行单元测试
-cd build && ctest --output-on-failure
+./build/coal_gangue_sorter_gui --mock
+./build/coal_gangue_sorter_console --mock --seconds 5
 ```
 
-Mock 模式下可以观察到：X 射线 / 相机伪数据流、64 路喷嘴矩阵实时闪烁、PLC 状态轮询。
+### Windows 生产构建（现场工控机）
 
-### 启用真实硬件（可选 CMake 选项）
+```bat
+cmake -B build ^
+  -DCGS_BUILD_GUI=ON ^
+  -DCGS_BUILD_CONSOLE=ON ^
+  -DCGS_HAS_SERIAL=ON ^
+  -DCGS_HAS_DETECTORLIB=ON ^
+  -DCGS_HAS_XRAYLIB=ON ^
+  -DCGS_HAS_BECKOFFLIB=ON ^
+  -DCGS_HAS_PLCCONTROLLIB=ON ^
+  -DCMAKE_PREFIX_PATH="D:\Qt\Qt5.14.2\5.14.2\msvc2017_64"
 
-| CMake 选项 | 说明 |
-|------------|------|
-| `CGS_HAS_SERIAL=ON` | 启用 POSIX/Win32 串口（VJ X 射线 RS232） |
-| `CGS_HAS_AURORA_SDK=ON` | 启用 Detection Technology Aurora 探测器 SDK |
-| `CGS_HAS_BECKHOFF_ADS=ON` | 启用 Beckhoff TwinCAT 3 ADS（PLC + EL2828 阀门） |
+cmake --build build --config Release -j4
 
-若已在本机 `third_party/ads/` 克隆 [Beckhoff/ADS](https://github.com/Beckhoff/ADS)，CMake 会自动把 `CGS_BECKHOFF_ADS_DIR` 指到该目录（仍可用 `-DCGS_HAS_BECKHOFF_ADS=ON` 打开编译）。
-
-**Aurora（Windows）**：将旧测厚项目 `Thickness Measure_kenya hebei jinwanli/lib/release/XLibDll.lib` 与 `bin/release/XLibDll.dll` 复制到 `third_party/aurora-sdk/lib/`（该目录下二进制已被 `.gitignore` 忽略，不入库）。在 **macOS / Linux** 上需厂商提供的 `libxlib.so` 才能链接 `CGS_HAS_AURORA_SDK=ON`。
-
----
-
-## 核心算法说明
-
-### 分类器（`core/Classifier/`）
-
-X 射线分类基于 16-bit 像素强度阈值（值越大表示穿透越强，即越空）：
-
-| 条件 | 判定 |
-|------|------|
-| `pixel ≥ xrayEmptyMin`（默认 50000） | 空（无物料） |
-| `pixel ≥ xrayCoalMin`（默认 25000） | 煤 |
-| `pixel < xrayGangueMax`（默认 25000） | 矸石 |
-| 其余 | 未知 |
-
-相机分类基于 ROI 列均值（8-bit 灰度）：颜色深（低亮度）倾向于矸石，高亮度为空。
-
-`segment()` 对分类结果做游程合并，并过滤宽度 < `minObjectWidthPx` 的短段以去除噪声。
-
-### 传感器融合（`core/Fusion/`）
-
-支持五种融合模式，通过配置文件 `<fusion><mode>` 切换：
-
-| 模式 | 行为 |
-|------|------|
-| `XRayOnly` | 仅用 X 射线结论 |
-| `CameraOnly` | 仅用相机结论 |
-| `AndReject` | 两路均判为矸石才喷 |
-| `OrReject` | 任一判为矸石即喷 |
-| `XRayAuthoritative` | X 射线优先，相机仅在 X 射线为 Unknown 时生效 |
-
-### 时序计算（`core/Timing/`）
-
-```
-开阀时刻 = now + (传感器到喷嘴距离 / 皮带速度) - 阀门开启延迟 - 气动飞行延迟 - 安全裕量
-持续时长 = (物料像素段宽度 / 皮带速度) + 阀门关闭延迟
+rem 从 E:\Gangue\ 复制运行时 DLL 到 build\Release\
+copy E:\Gangue\DetectorLib.dll  build\Release\
+copy E:\Gangue\XRayLib.dll      build\Release\
+copy E:\Gangue\BeckHoffLib.dll  build\Release\
+copy E:\Gangue\PLCControlLib.dll build\Release\
+copy E:\Gangue\XLibDll.dll      build\Release\
+copy E:\Gangue\Qt5*.dll         build\Release\
 ```
 
-所有时刻以 `steady_clock` 纳秒绝对时间戳传递给 `IValveDriver::schedule`，避免浮点延迟误差。
+### 离线推理测试（无硬件）
 
-### 喷嘴映射（`core/NozzleMapping/`）
-
-`NozzleGeometry` 配置皮带宽度、像素/喷嘴比（`pixelsPerNozzle`）和两侧扩边像素数。
-`nozzlesForRange(pixelStart, pixelEnd)` 返回覆盖该物料段的所有喷嘴 ID 列表（最多 64 路）。
-
----
-
-## 配置说明
-
-将 `config/config.example.xml` 复制为 `config/config.xml`（或设置环境变量 `CGS_CONFIG_PATH`），按现场实际调整：
-
-```xml
-<!-- 硬件类型：mock | aurora | vj-serial | el2828 | beckhoff -->
-<xray type="mock" port="/dev/ttyUSB0" kv="80" ma="5"/>
-<detector type="mock" lineRateHz="1000" width="1024"/>
-
-<!-- 几何参数（现场实测后填写） -->
-<geometry>
-    <beltWidthMm>1000</beltWidthMm>
-    <sensorToNozzleMm>860</sensorToNozzleMm>   <!-- 传感器到喷嘴距离 -->
-    <nozzleSpacingMm>30</nozzleSpacingMm>
-    <nozzleCount>64</nozzleCount>
-    <pixelsPerNozzle>16</pixelsPerNozzle>
-</geometry>
-
-<!-- 时序参数（在台架上实测 DF8 阀门后填写） -->
-<timing>
-    <valveOpenLatencyMs>8</valveOpenLatencyMs>
-    <valveCloseLatencyMs>6</valveCloseLatencyMs>
-    <pneumaticTravelMs>2</pneumaticTravelMs>
-    <safetyMarginMs>1</safetyMarginMs>
-</timing>
+```bat
+rem 用真实 X 射线帧测试 TRT 推理管线
+build\Release\cgs_test_offline --tif tests\test_frame.tif --model D:\best_Xray.trt
 ```
 
-> **注意：** 命令行与 GUI 会尝试加载 `config/config.xml`（或 `--config` / `CGS_CONFIG_PATH`）；若文件不存在则使用内置默认参数（`--real` 仅在该情况下启用「真实硬件预设」类型名）。
+---
+
+## CMake 编译选项
+
+| 选项 | 说明 | 生产推荐 |
+|---|---|---|
+| `CGS_HAS_DETECTORLIB=ON` | DetectorLib.dll 适配（首选探测器驱动）| ✅ |
+| `CGS_HAS_XRAYLIB=ON` | XRayLib.dll 适配（首选 X 射线驱动）| ✅ |
+| `CGS_HAS_BECKOFFLIB=ON` | BeckHoffLib.dll 适配（首选阀门驱动）| ✅ |
+| `CGS_HAS_PLCCONTROLLIB=ON` | PLCControlLib.dll 适配（首选 PLC 驱动）| ✅ |
+| `CGS_HAS_SERIAL=ON` | 串口支持（XRaySerial 备用驱动）| ✅ |
+| `CGS_HAS_BECKHOFF_ADS=ON` | 开源 AdsLib（ValveDriverEL2828 备用）| 可选 |
+| `CGS_HAS_SNAP7=ON` | snap7（PLCS7 备用，S7-1500）| 可选 |
+| `CGS_HAS_TENSORRT=ON` | TensorRT 推理（需 NVIDIA GPU）| ✅ 生产 |
+| `CGS_HAS_ONNX=ON` | ONNX Runtime 推理（跨平台开发）| 开发用 |
+| `CGS_HAS_HIKVISION=ON` | 海康相机（融合模式，当前禁用）| 可选 |
 
 ---
 
-## GUI 界面
+## 关键硬件参数（先瑗矿现场确认值）
 
-运行 `coal_gangue_sorter_gui --mock` 后，界面包含：
-
-- **工具栏**：Arm（启动喷吹）/ Disarm（停止喷吹）/ 急停按钮
-- **X 射线瀑布图**（`XRayWaterfallView`）：滚动显示实时线扫原始灰度
-- **64 路喷嘴矩阵**（`NozzleMatrixView`）：实时显示各通道触发状态
-- **参数面板**（`ConfigPanel`）：在线修改分类阈值、时序参数、喷嘴映射比
-- **统计面板**（`StatsPanel`）：帧率、矸石率、误判统计
-
-详细界面说明见 [`docs/gui-build.md`](docs/gui-build.md)。
-
----
-
-## Python 工具
-
-依赖：`numpy`, `matplotlib`, `pyserial`, `pyyaml`（`pip install -r tools/requirements.txt`）
-
-| 脚本 | 用途 |
-|------|------|
-| `tools/calibrate_belt.py` | 通过打点采样估算皮带线速度 |
-| `tools/timing_simulator.py` | 在不接硬件的情况下仿真时序参数灵敏度 |
-| `tools/replay_session.py` | 加载录制的原始帧文件，离线重现分类结果 |
-| `tools/nozzle_self_test.py` | 顺序触发各喷嘴通道，验证气路与接线 |
-
----
-
-## 硬件清单
-
-| 设备 | 型号 / 厂商 | 备注 |
-|------|-------------|------|
-| X 射线源 | **VJ Technologies IXS200BP500P479**（控制盒 ZS3000-011） | RS232 J3；规格 SPC-P479 REV3；协议见 `vj-xray-rs232.md`；完整固件手册 `P032-IXS-FIRMWARE-P032 R5` 可向厂家索取 |
-| 线阵探测器 | Detection Technology Aurora | SDK 不入库，需现场交付 |
-| 工业相机 | 凌云光（GigE） | 硬件触发模式 |
-| 电磁阀 | DF8-2024-10（合肥坤双光电） | 由 EL2828 直驱，高速，需台架测延迟 |
-| PLC / IO | Beckhoff TwinCAT 3 + EL2828 | 喷嘴经 EtherCAT DO 直驱；ADS 与上位机通信，变量约定见文档 |
-| 配电柜 | 山西天朗电气 | — |
-
-关联合同：**太原泓博科技** C-2024000002
+| 参数 | 值 | 来源 |
+|---|---|---|
+| X 射线电压 | 200 kV | config.xml Voltage |
+| X 射线电流 | 2.3 mA（=2300 µA）| config.xml Current |
+| X 射线串口 | COM1, 9600-8N1 | xlog.dat + XRayLib 反编译 |
+| CP 命令格式 | 5位零填充 µA（"02300"）| XRayLib.dll.c 反编译确认 |
+| 探测器 IP | 192.168.1.199 | config.xml |
+| 探测器像素数 | 2180（DNum=17模块×128px）| config.xml |
+| 积分时间 | 540 µs | config.xml intTime |
+| 每帧行数 | 1150 | config.xml LineNumber |
+| 喷嘴数量 | 136（QNum）| config.xml |
+| 有效像素范围 | QStart=11 ~ QEnd=1066 | config.xml |
+| 每喷嘴像素数 | 7.757 px | (1066-11)/136 |
+| ADS 索引组 | 0x3040030 | config.xml / BeckHoff.cpp |
+| 阀门写偏移 | 0x81000006（主喷嘴排）| config.xml 确认 |
+| Beifu 写偏移 | 0x81000000（光机联锁）| BeckHoff.cpp 源码确认 |
+| **TimerGap（喷吹延迟）** | **2456 ms** | config.xml + Qt_OpenCV反编译 **[固定值，非动态公式]** |
+| 皮带名义速度 | 2035 mm/s | config.xml Speed |
+| PLC IP | 192.168.2.100:102 | config.xml |
+| PLC 型号字符串 | "S7-1500"（PLCControlLib第3参数）| PLCControlLib.dll.c 反编译确认 |
+| 皮带速度 DB | DB15，字节偏移 146，INT16 | PLCState 面板 + 反编译 |
+| 皮带速度数组索引 | 73（= 146/2，INT16 数组）| PLCControlLib.dll.c 反编译确认 |
+| AI 模型 | YOLOv8-seg，640px 输入，3类 | model 命名 + 反编译 |
+| 模型路径 | D:\best_Xray.trt | 现场截图 D:\ 目录 |
+| 软件安装路径 | E:\Gangue | gangue_sys.log 确认 |
 
 ---
 
-## 文档导航
+## AI 训练工作流
 
-### 新人入门
-- 4 周成长路线：[`docs/learning-path.md`](docs/learning-path.md)
+原版采用 YOLOv8 实例分割模型（`best_seg.onnx` → `best_Xray.trt`），通过机器采集的 X 射线帧迭代训练：
 
-### 硬件
-- 物料盘点：[`docs/hardware/inventory.md`](docs/hardware/inventory.md)
-- I/O 点表：[`docs/hardware/io-table.md`](docs/hardware/io-table.md)
-- 搭建手册：[`docs/hardware/build-guide.md`](docs/hardware/build-guide.md)
-- 安全规程：[`docs/hardware/safety.md`](docs/hardware/safety.md)
-- 协议问题清单：[`docs/hardware/protocol-questions.md`](docs/hardware/protocol-questions.md)
+```bash
+# 1. 从机器运行数据生成训练集（需 MustSave=1 运行过一段时间）
+python tools/collect_training_data.py \
+  --data D:/data \
+  --out D:/data/xray_dataset
 
-### 协议规范
-- VJ X 射线 RS232：[`docs/hardware/protocols/vj-xray-rs232.md`](docs/hardware/protocols/vj-xray-rs232.md)
-- Detection Technology Aurora：[`docs/hardware/protocols/detection-tech-aurora.md`](docs/hardware/protocols/detection-tech-aurora.md)
-- Beckhoff ADS：[`docs/hardware/protocols/beckhoff-ads.md`](docs/hardware/protocols/beckhoff-ads.md)
+# 2. 用 labelImg 审查并修正自动标注（每1000张约30分钟）
 
-### 软件
-- 架构与设计决策：[`docs/architecture.md`](docs/architecture.md)
-- Qt GUI 构建说明：[`docs/gui-build.md`](docs/gui-build.md)
+# 3. 训练
+python tools/train_xray.py \
+  --data D:/data/xray_dataset/dataset.yaml \
+  --imgsz 640 --epochs 200
+
+# 4. 导出 → TRT（在目标 GPU 机器上执行）
+trtexec --onnx=best_seg.onnx --saveEngine=best_Xray.trt
+trtexec --onnx=best_seg.onnx --saveEngine=best_Xray_fp16.trt --fp16
+
+# 5. 复制到 D:\ 并更新 config.xml trtPath
+```
+
+类别定义（`DP_class_num=3`, `Classes="1,0,0"`）：
+- 类别 0：矸石（触发喷吹）
+- 类别 1：煤（通过）
+- 类别 2：混合/夹矸（通过，可通过 ClassesAlter 调整）
 
 ---
 
-## 已知局限 / 后续工作
+## 现场上线流程
 
-- **相机融合主循环接入**：`PipelineEngine` 已预留接口，但当前主循环将相机输入固定传入 `Material::Unknown`，待相机帧同步逻辑完成后接通。
-- **根目录 `sorter` 二进制**：疑似遗留构建产物，建议确认后清理。
+### 无硬件阶段（当前可完成）
+- [ ] Windows 编译（`cmake` + 复制 DLL）
+- [ ] `--mock` 模式 GUI 验证（面板、日志、预热对话框）
+- [ ] `cgs_test_offline` 用 `tests/test_frame.tif` 验证 TRT 推理
+- [ ] 工业相机连接测试（`CameraHikGigE` 适配器，.ccf 文件已就位）
+
+### 需现场停机（一次性，约半天）
+- [ ] `cgs_test_bf` 验证 136 路喷嘴全部响应
+- [ ] 确认探测器连接（日志出现 `ip:xxx,cmdport:yyy,imgport:zzz`）
+- [ ] 确认皮带速度读数单位（对比转速表实测值）
+- [ ] X 射线预热 + kV/mA 确认
+- [ ] 暗场校正 + 亮场校正（更新 mode.txt）
+- [ ] 首次带料分选 + 矸石率核对
 
 ---
 
-## License
+## 已知剩余不确定项
 
-TBD（项目内部使用）
+| 项目 | 状态 | 解决方式 |
+|---|---|---|
+| `slotDet_init` 第2参数含义 | 当前传 0，意义未明 | 现场观察日志，若失败尝试 1150 |
+| 皮带速度单位（mm/s? 或其他）| 当前假设 raw/1000 = m/s | 现场与转速表对照 |
+| ACS 皮带控制轴号 | 当前假设轴 0 | 查看 OpenClaw 项目配置文件 |
+| Beifu 控制器功能细节 | 地址已确认，具体功能未知 | 现场测试 XRay_enable 是否依赖 |
+
+---
+
+## 许可
+
+内部项目使用。  
+本仓库不包含原 `Gangue.exe` 的任何二进制文件；所有代码均独立重写。  
+第三方 DLL（DetectorLib、XRayLib 等）属于原机器制造方的知识产权，本仓库仅包含其 `.lib` 导入库和从符号表重建的头文件。
